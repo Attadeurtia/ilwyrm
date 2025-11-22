@@ -88,8 +88,12 @@ class BookDetailsPage extends ConsumerWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           image: DecorationImage(
-                            image: book.openlibraryKey != null
-                                ? NetworkImage(
+                            image: book.coverId != null
+                                ? CachedNetworkImageProvider(
+                                    'https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg',
+                                  )
+                                : book.openlibraryKey != null
+                                ? CachedNetworkImageProvider(
                                     'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
                                   )
                                 : const AssetImage(
@@ -107,7 +111,8 @@ class BookDetailsPage extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        child: book.openlibraryKey == null
+                        child:
+                            book.coverId == null && book.openlibraryKey == null
                             ? Container(
                                 color: Theme.of(
                                   context,
