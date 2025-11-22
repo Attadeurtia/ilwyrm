@@ -67,6 +67,10 @@ class AppDatabase extends _$AppDatabase {
       },
     );
   }
+
+  Future<int> deleteBook(int id) {
+    return (delete(books)..where((tbl) => tbl.id.equals(id))).go();
+  }
 }
 
 LazyDatabase _openConnection() {

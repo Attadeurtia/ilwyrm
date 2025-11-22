@@ -63,7 +63,12 @@ class BookDetailsPage extends ConsumerWidget {
                     ),
                     onTap: () {
                       Future.delayed(const Duration(seconds: 0), () {
-                        if (context.mounted) _confirmDelete(context, ref, book);
+                        if (context.mounted) {
+                          database.deleteBook(book.id);
+                          Navigator.of(
+                            context,
+                          ).pop(); // Pop the detail page after deleting
+                        }
                       });
                     },
                   ),
