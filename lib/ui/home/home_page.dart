@@ -65,13 +65,41 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton.icon(
-                  onPressed: () {
-                    // Show sort menu
-                    _showSortMenu(context);
+                PopupMenuButton<SortOption>(
+                  child: const Row(
+                    children: [
+                      Icon(Icons.swap_vert),
+                      SizedBox(width: 8),
+                      Text('Trie'),
+                    ],
+                  ),
+                  onSelected: (SortOption result) {
+                    ref.read(sortProvider.notifier).setSort(result);
                   },
-                  icon: const Icon(Icons.swap_vert),
-                  label: const Text('Trie'),
+                  itemBuilder: (BuildContext context) =>
+                      <PopupMenuEntry<SortOption>>[
+                        const PopupMenuItem<SortOption>(
+                          value: SortOption.dateAdded,
+                          child: ListTile(
+                            leading: Icon(Icons.calendar_today),
+                            title: Text('Date d\'ajout'),
+                          ),
+                        ),
+                        const PopupMenuItem<SortOption>(
+                          value: SortOption.title,
+                          child: ListTile(
+                            leading: Icon(Icons.sort_by_alpha),
+                            title: Text('Titre'),
+                          ),
+                        ),
+                        const PopupMenuItem<SortOption>(
+                          value: SortOption.author,
+                          child: ListTile(
+                            leading: Icon(Icons.person),
+                            title: Text('Auteur'),
+                          ),
+                        ),
+                      ],
                 ),
                 IconButton(
                   icon: Consumer(
@@ -124,6 +152,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
       floatingActionButton: SpeedDial(
         icon: Icons.add,
+        label: const Text('Ajouter'),
         activeIcon: Icons.close,
         spacing: 3,
         childPadding: const EdgeInsets.all(5),
@@ -171,42 +200,5 @@ class _HomePageState extends ConsumerState<HomePage> {
       default:
         return const SizedBox();
     }
-  }
-
-  void _showSortMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Date d\'ajout'),
-              onTap: () {
-                ref.read(sortProvider.notifier).setSort(SortOption.dateAdded);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.sort_by_alpha),
-              title: const Text('Titre'),
-              onTap: () {
-                ref.read(sortProvider.notifier).setSort(SortOption.title);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Auteur'),
-              onTap: () {
-                ref.read(sortProvider.notifier).setSort(SortOption.author);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 }
