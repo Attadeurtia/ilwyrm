@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../data/database.dart';
@@ -131,20 +132,27 @@ class BookDetailsPage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Author Chip
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF006978),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              book.authorText ?? 'Auteur inconnu',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                          InkWell(
+                            onTap: () {
+                              // TODO: Implement navigation or action to show all books by this author
+                              // Example: Navigator.push(context, MaterialPageRoute(builder: (context) => AuthorBooksPage(author: book.authorText)));
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF006978),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                book.authorText ?? 'Auteur inconnu',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
@@ -166,15 +174,36 @@ class BookDetailsPage extends ConsumerWidget {
                           ),
                           const SizedBox(height: 16),
                           // ISBN
-                          Text(
-                            'ISBN',
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(
-                                  color: Colors.grey,
-                                  fontWeight: FontWeight.bold,
+                          InkWell(
+                            onTap: () {
+                              if (book.isbn13 != null) {
+                                Clipboard.setData(
+                                  ClipboardData(text: book.isbn13!),
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'ISBN copié dans le presse-papier',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'ISBN',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: Colors.grey,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                 ),
+                                Text(book.isbn13 ?? 'Inconnu'),
+                              ],
+                            ),
                           ),
-                          Text(book.isbn13 ?? 'Inconnu'),
                           const SizedBox(height: 16),
                           // Added Date
                           Text(
