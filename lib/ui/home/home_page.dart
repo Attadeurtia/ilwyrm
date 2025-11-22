@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import '../add_book/scanner_page.dart';
+import '../add_book/search_book_page.dart';
 import 'filter_bar.dart';
 import '../books/book_list_view.dart';
 
@@ -10,7 +13,8 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends ConsumerState<HomePage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isSearchActive = false;
   final TextEditingController _searchController = TextEditingController();
@@ -61,7 +65,10 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                 // TODO: Implement sort
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'date', child: Text('Date d\'ajout')),
+                const PopupMenuItem(
+                  value: 'date',
+                  child: Text('Date d\'ajout'),
+                ),
                 const PopupMenuItem(value: 'title', child: Text('Titre')),
                 const PopupMenuItem(value: 'author', child: Text('Auteur')),
               ],
@@ -75,7 +82,9 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
           ],
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(100), // Height for TabBar + FilterBar
+          preferredSize: const Size.fromHeight(
+            100,
+          ), // Height for TabBar + FilterBar
           child: Column(
             children: [
               const FilterBar(),
@@ -99,11 +108,41 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
           BookListView(status: 'read'),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Add book
-        },
-        child: const Icon(Icons.add),
+      floatingActionButton: SpeedDial(
+        icon: Icons.add,
+        activeIcon: Icons.close,
+        spacing: 3,
+        childPadding: const EdgeInsets.all(5),
+        spaceBetweenChildren: 4,
+        // renderOverlay: false, // Try disabling overlay if it causes issues
+        tooltip: 'Ajouter un livre',
+        heroTag: 'speed-dial-hero-tag',
+        elevation: 8.0,
+        shape: const CircleBorder(),
+        children: [
+          SpeedDialChild(
+            child: const Icon(Icons.qr_code_scanner),
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            label: 'Scanner',
+            labelStyle: const TextStyle(fontSize: 18.0),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const ScannerPage()),
+              );
+            },
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.search),
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            label: 'Recherche',
+            labelStyle: const TextStyle(fontSize: 18.0),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SearchBookPage()),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

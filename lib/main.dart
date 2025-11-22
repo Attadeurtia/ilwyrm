@@ -2,10 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'data/database.dart';
+import 'data/seed_data.dart';
 import 'ui/home/home_page.dart';
 
-void main() {
-  runApp(const ProviderScope(child: IlwyrmApp()));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final db = AppDatabase();
+  await seedDatabase(db);
+
+  runApp(
+    ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: const IlwyrmApp(),
+    ),
+  );
 }
 
 class IlwyrmApp extends StatelessWidget {
