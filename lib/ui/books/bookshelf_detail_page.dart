@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../data/database.dart';
 import '../add_book/edit_book_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class BookDetailsPage extends ConsumerWidget {
   final int bookId;
@@ -89,7 +90,7 @@ class BookDetailsPage extends ConsumerWidget {
                           image: DecorationImage(
                             image: book.openlibraryKey != null
                                 ? NetworkImage(
-                                    'https://covers.openlibrary.org/b/olid/${book.openlibraryKey}-L.jpg',
+                                    'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
                                   )
                                 : const AssetImage(
                                         'assets/placeholder_book.png',
@@ -407,8 +408,8 @@ class _AuthorBooksList extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(8),
                       image: DecorationImage(
                         image: book.openlibraryKey != null
-                            ? NetworkImage(
-                                'https://covers.openlibrary.org/b/olid/${book.openlibraryKey}-M.jpg',
+                            ? CachedNetworkImageProvider(
+                                'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
                               )
                             : const AssetImage('assets/placeholder_book.png')
                                   as ImageProvider,

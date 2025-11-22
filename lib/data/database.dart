@@ -15,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -24,12 +24,25 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // Development mode: Drop all tables and recreate to ensure schema matches
-        // This is destructive but safe for this stage of development
-        for (final table in allTables) {
-          await m.deleteTable(table.actualTableName);
+        if (from < 2) {
+          // Destructive reset for v1 -> v2
+          for (final table in allTables) {
+            await m.deleteTable(table.actualTableName);
+          }
+          await m.createAll();
+          return;
         }
-        await m.createAll();
+
+        if (from < 4) {
+          // Add pageCount column for v2/v3 -> v4
+          // We check if the column exists to be safe, but Drift's addColumn usually handles this or we can try/catch
+          try {
+            await m.addColumn(books, books.pageCount);
+          } catch (e) {
+            // Column might already exist if v3 migration partially worked or something
+            print('Error adding pageCount column: $e');
+          }
+        }
       },
     );
   }

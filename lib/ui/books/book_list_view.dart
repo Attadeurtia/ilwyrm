@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import 'bookshelf_detail_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class BookListView extends ConsumerWidget {
   final String status;
@@ -75,11 +76,35 @@ class BookListView extends ConsumerWidget {
                 leading: Container(
                   width: 50,
                   height: 75,
-                  color: Colors.grey[300], // Placeholder for cover
-                  child: const Icon(Icons.book),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    image: DecorationImage(
+                      image: book.openlibraryKey != null
+                          ? CachedNetworkImageProvider(
+                              'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
+                            )
+                          : const AssetImage('assets/placeholder_book.png')
+                                as ImageProvider,
+                      fit: BoxFit.cover,
+                      onError: (_, __) {},
+                    ),
+                    color: Colors.grey[300],
+                  ),
+                  child: book.openlibraryKey == null
+                      ? const Center(child: Icon(Icons.book, size: 24))
+                      : null,
                 ),
-                title: Text(book.title),
-                subtitle: Text(book.authorText ?? 'Auteur inconnu'),
+                title: Text(
+                  book.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  book.authorText ?? 'Auteur inconnu',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: book.rating != null
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
