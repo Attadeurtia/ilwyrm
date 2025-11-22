@@ -6,6 +6,7 @@ import '../add_book/search_book_page.dart';
 import 'filter_bar.dart';
 import '../books/book_list_view.dart';
 import 'sort_provider.dart';
+import 'view_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -81,9 +82,21 @@ class _HomePageState extends ConsumerState<HomePage>
               ],
             ),
             IconButton(
-              icon: const Icon(Icons.grid_view), // Toggle between list/grid
+              icon: Consumer(
+                builder: (context, ref, child) {
+                  final view = ref.watch(viewProvider);
+                  switch (view) {
+                    case ViewOption.list:
+                      return const Icon(Icons.view_list);
+                    case ViewOption.grid:
+                      return const Icon(Icons.grid_view);
+                    case ViewOption.gridWithDetails:
+                      return const Icon(Icons.grid_on);
+                  }
+                },
+              ),
               onPressed: () {
-                // TODO: Implement view toggle
+                ref.read(viewProvider.notifier).toggle();
               },
             ),
           ],
