@@ -8,6 +8,7 @@ import '../books/book_list_view.dart';
 import 'sort_provider.dart';
 import 'view_provider.dart';
 import '../settings/settings_page.dart';
+import 'local_search_delegate.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -34,9 +35,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         leading: IconButton(
           icon: const Icon(Icons.search),
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const SearchBookPage()),
-            );
+            showSearch(context: context, delegate: LocalSearchDelegate(ref));
           },
         ),
         title: const Text('Ilwyrm'),

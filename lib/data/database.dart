@@ -71,6 +71,13 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deleteBook(int id) {
     return (delete(books)..where((tbl) => tbl.id.equals(id))).go();
   }
+
+  Future<List<Book>> searchBooks(String query) {
+    return (select(books)..where(
+          (tbl) => tbl.title.like('%$query%') | tbl.authorText.like('%$query%'),
+        ))
+        .get();
+  }
 }
 
 LazyDatabase _openConnection() {
