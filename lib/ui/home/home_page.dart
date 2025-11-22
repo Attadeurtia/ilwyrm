@@ -7,6 +7,7 @@ import 'filter_bar.dart';
 import '../books/book_list_view.dart';
 import 'sort_provider.dart';
 import 'view_provider.dart';
+import '../settings/settings_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -42,12 +43,19 @@ class _HomePageState extends ConsumerState<HomePage> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(
-              backgroundColor: const Color(0xFF006978),
-              child: Text(
-                'A',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimary,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const SettingsPage()),
+                );
+              },
+              child: CircleAvatar(
+                backgroundColor: const Color(0xFF006978),
+                child: Text(
+                  'A',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
                 ),
               ),
             ),
