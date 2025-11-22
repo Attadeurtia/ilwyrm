@@ -45,6 +45,7 @@ Future<void> seedDatabase(AppDatabase db) async {
       const BooksCompanion(
         title: Value('Carbone & Silicium'),
         authorText: Value('Mathieu Bablet'),
+        remoteId: const Value('https://bookwyrm.social/book/131235'),
         openlibraryKey: const Value('OL32110734W'),
         shelf: Value('to_read'),
         shelfName: Value('To Read'),

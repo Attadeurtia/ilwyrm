@@ -407,7 +407,11 @@ class _AuthorBooksList extends ConsumerWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
                       image: DecorationImage(
-                        image: book.openlibraryKey != null
+                        image: book.coverId != null
+                            ? CachedNetworkImageProvider(
+                                'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
+                              )
+                            : book.openlibraryKey != null
                             ? CachedNetworkImageProvider(
                                 'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
                               )

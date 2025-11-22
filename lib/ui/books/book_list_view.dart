@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import 'bookshelf_detail_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../home/sort_provider.dart';
+import 'package:drift/drift.dart' as drift;
 
 class BookListView extends ConsumerWidget {
   final String status;
@@ -30,10 +32,34 @@ class BookListView extends ConsumerWidget {
     // In seed we used 'to_read' for Dune and 'read'/'reading' for others.
     // Let's query safely.
 
+    final sortOption = ref.watch(sortProvider);
+
     return StreamBuilder<List<Book>>(
-      stream: (database.select(
-        database.books,
-      )..where((tbl) => tbl.shelf.equals(dbStatus))).watch(),
+      stream:
+          (database.select(database.books)
+                ..where((tbl) => tbl.shelf.equals(dbStatus))
+                ..orderBy([
+                  (t) {
+                    switch (sortOption) {
+                      case SortOption.title:
+                        return drift.OrderingTerm(
+                          expression: t.title,
+                          mode: drift.OrderingMode.asc,
+                        );
+                      case SortOption.author:
+                        return drift.OrderingTerm(
+                          expression: t.authorText,
+                          mode: drift.OrderingMode.asc,
+                        );
+                      case SortOption.dateAdded:
+                        return drift.OrderingTerm(
+                          expression: t.dateAdded,
+                          mode: drift.OrderingMode.desc,
+                        );
+                    }
+                  },
+                ]))
+              .watch(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
@@ -79,7 +105,11 @@ class BookListView extends ConsumerWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(4),
                     image: DecorationImage(
-                      image: book.openlibraryKey != null
+                      image: book.coverId != null
+                          ? CachedNetworkImageProvider(
+                              'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
+                            )
+                          : book.openlibraryKey != null
                           ? CachedNetworkImageProvider(
                               'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
                             )
@@ -90,7 +120,7 @@ class BookListView extends ConsumerWidget {
                     ),
                     color: Colors.grey[300],
                   ),
-                  child: book.openlibraryKey == null
+                  child: book.openlibraryKey == null && book.coverId == null
                       ? const Center(child: Icon(Icons.book, size: 24))
                       : null,
                 ),

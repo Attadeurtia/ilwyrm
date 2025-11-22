@@ -45,13 +45,18 @@ class _ScannerPageState extends State<ScannerPage> {
           for (final barcode in barcodes) {
             if (barcode.rawValue != null) {
               debugPrint('Barcode found! ${barcode.rawValue}');
-              // For now, just show a snackbar and pop
-              // In real implementation, we would fetch the book
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Code détecté: ${barcode.rawValue}')),
+              // Stop scanning to prevent multiple pushes
+              _controller.stop();
+
+              // Navigate to search page with the ISBN
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      SearchBookPage(initialQuery: barcode.rawValue),
+                ),
               );
-              // _controller.stop(); // Optional: stop scanning after one
-              // Navigator.pop(context, barcode.rawValue);
+              return; // Only process the first valid barcode
             }
           }
         },

@@ -3,7 +3,9 @@ import '../../data/open_library_api.dart';
 import 'edit_book_page.dart';
 
 class SearchBookPage extends StatefulWidget {
-  const SearchBookPage({super.key});
+  final String? initialQuery;
+
+  const SearchBookPage({super.key, this.initialQuery});
 
   @override
   State<SearchBookPage> createState() => _SearchBookPageState();
@@ -15,6 +17,15 @@ class _SearchBookPageState extends State<SearchBookPage> {
   List<OpenLibraryBook> _books = [];
   bool _isLoading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialQuery != null) {
+      _controller.text = widget.initialQuery!;
+      _search();
+    }
+  }
 
   Future<void> _search() async {
     final query = _controller.text.trim();

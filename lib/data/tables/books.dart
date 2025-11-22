@@ -33,6 +33,7 @@ class Books extends Table {
       dateTime().named('stopped_date').nullable()();
 
   // Review & Rating
+  IntColumn get coverId => integer().nullable()();
   IntColumn get rating => integer().nullable()(); // Assuming 1-5 stars
   TextColumn get reviewName => text().named('review_name').nullable()();
   TextColumn get reviewCw =>

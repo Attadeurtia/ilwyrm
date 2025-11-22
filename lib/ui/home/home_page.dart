@@ -5,6 +5,7 @@ import '../add_book/scanner_page.dart';
 import '../add_book/search_book_page.dart';
 import 'filter_bar.dart';
 import '../books/book_list_view.dart';
+import 'sort_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -59,18 +60,24 @@ class _HomePageState extends ConsumerState<HomePage>
             },
           ),
           if (!_isSearchActive) ...[
-            PopupMenuButton<String>(
+            PopupMenuButton<SortOption>(
               icon: const Icon(Icons.sort),
               onSelected: (value) {
-                // TODO: Implement sort
+                ref.read(sortProvider.notifier).setSort(value);
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(
-                  value: 'date',
+                  value: SortOption.dateAdded,
                   child: Text('Date d\'ajout'),
                 ),
-                const PopupMenuItem(value: 'title', child: Text('Titre')),
-                const PopupMenuItem(value: 'author', child: Text('Auteur')),
+                const PopupMenuItem(
+                  value: SortOption.title,
+                  child: Text('Titre'),
+                ),
+                const PopupMenuItem(
+                  value: SortOption.author,
+                  child: Text('Auteur'),
+                ),
               ],
             ),
             IconButton(

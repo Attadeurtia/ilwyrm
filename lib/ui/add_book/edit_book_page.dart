@@ -73,12 +73,13 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           shelf: drift.Value(_status),
           shelfName: drift.Value(_getShelfName(_status)),
           openlibraryKey: widget.initialBook?.key != null
-              ? drift.Value(widget.initialBook!.key)
+              ? drift.Value(widget.initialBook!.key.split('/').last)
               : const drift.Value.absent(),
           isbn13: widget.initialBook?.isbns?.isNotEmpty == true
               ? drift.Value(widget.initialBook!.isbns!.first)
               : const drift.Value.absent(),
           pageCount: drift.Value(widget.initialBook?.numberOfPages),
+          coverId: drift.Value(widget.initialBook?.coverId),
           dateAdded: drift.Value(DateTime.now()),
           dateModified: drift.Value(DateTime.now()),
         );

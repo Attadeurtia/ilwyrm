@@ -237,6 +237,17 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _coverIdMeta = const VerificationMeta(
+    'coverId',
+  );
+  @override
+  late final GeneratedColumn<int> coverId = GeneratedColumn<int>(
+    'cover_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _ratingMeta = const VerificationMeta('rating');
   @override
   late final GeneratedColumn<int> rating = GeneratedColumn<int>(
@@ -371,6 +382,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     startDate,
     finishDate,
     stoppedDate,
+    coverId,
     rating,
     reviewName,
     reviewCw,
@@ -540,6 +552,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         ),
       );
     }
+    if (data.containsKey('cover_id')) {
+      context.handle(
+        _coverIdMeta,
+        coverId.isAcceptableOrUnknown(data['cover_id']!, _coverIdMeta),
+      );
+    }
     if (data.containsKey('rating')) {
       context.handle(
         _ratingMeta,
@@ -706,6 +724,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}stopped_date'],
       ),
+      coverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cover_id'],
+      ),
       rating: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}rating'],
@@ -778,6 +800,7 @@ class Book extends DataClass implements Insertable<Book> {
   final DateTime? startDate;
   final DateTime? finishDate;
   final DateTime? stoppedDate;
+  final int? coverId;
   final int? rating;
   final String? reviewName;
   final String? reviewCw;
@@ -811,6 +834,7 @@ class Book extends DataClass implements Insertable<Book> {
     this.startDate,
     this.finishDate,
     this.stoppedDate,
+    this.coverId,
     this.rating,
     this.reviewName,
     this.reviewCw,
@@ -886,6 +910,9 @@ class Book extends DataClass implements Insertable<Book> {
     }
     if (!nullToAbsent || stoppedDate != null) {
       map['stopped_date'] = Variable<DateTime>(stoppedDate);
+    }
+    if (!nullToAbsent || coverId != null) {
+      map['cover_id'] = Variable<int>(coverId);
     }
     if (!nullToAbsent || rating != null) {
       map['rating'] = Variable<int>(rating);
@@ -974,6 +1001,9 @@ class Book extends DataClass implements Insertable<Book> {
       stoppedDate: stoppedDate == null && nullToAbsent
           ? const Value.absent()
           : Value(stoppedDate),
+      coverId: coverId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverId),
       rating: rating == null && nullToAbsent
           ? const Value.absent()
           : Value(rating),
@@ -1029,6 +1059,7 @@ class Book extends DataClass implements Insertable<Book> {
       startDate: serializer.fromJson<DateTime?>(json['startDate']),
       finishDate: serializer.fromJson<DateTime?>(json['finishDate']),
       stoppedDate: serializer.fromJson<DateTime?>(json['stoppedDate']),
+      coverId: serializer.fromJson<int?>(json['coverId']),
       rating: serializer.fromJson<int?>(json['rating']),
       reviewName: serializer.fromJson<String?>(json['reviewName']),
       reviewCw: serializer.fromJson<String?>(json['reviewCw']),
@@ -1067,6 +1098,7 @@ class Book extends DataClass implements Insertable<Book> {
       'startDate': serializer.toJson<DateTime?>(startDate),
       'finishDate': serializer.toJson<DateTime?>(finishDate),
       'stoppedDate': serializer.toJson<DateTime?>(stoppedDate),
+      'coverId': serializer.toJson<int?>(coverId),
       'rating': serializer.toJson<int?>(rating),
       'reviewName': serializer.toJson<String?>(reviewName),
       'reviewCw': serializer.toJson<String?>(reviewCw),
@@ -1103,6 +1135,7 @@ class Book extends DataClass implements Insertable<Book> {
     Value<DateTime?> startDate = const Value.absent(),
     Value<DateTime?> finishDate = const Value.absent(),
     Value<DateTime?> stoppedDate = const Value.absent(),
+    Value<int?> coverId = const Value.absent(),
     Value<int?> rating = const Value.absent(),
     Value<String?> reviewName = const Value.absent(),
     Value<String?> reviewCw = const Value.absent(),
@@ -1140,6 +1173,7 @@ class Book extends DataClass implements Insertable<Book> {
     startDate: startDate.present ? startDate.value : this.startDate,
     finishDate: finishDate.present ? finishDate.value : this.finishDate,
     stoppedDate: stoppedDate.present ? stoppedDate.value : this.stoppedDate,
+    coverId: coverId.present ? coverId.value : this.coverId,
     rating: rating.present ? rating.value : this.rating,
     reviewName: reviewName.present ? reviewName.value : this.reviewName,
     reviewCw: reviewCw.present ? reviewCw.value : this.reviewCw,
@@ -1195,6 +1229,7 @@ class Book extends DataClass implements Insertable<Book> {
       stoppedDate: data.stoppedDate.present
           ? data.stoppedDate.value
           : this.stoppedDate,
+      coverId: data.coverId.present ? data.coverId.value : this.coverId,
       rating: data.rating.present ? data.rating.value : this.rating,
       reviewName: data.reviewName.present
           ? data.reviewName.value
@@ -1241,6 +1276,7 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
+          ..write('coverId: $coverId, ')
           ..write('rating: $rating, ')
           ..write('reviewName: $reviewName, ')
           ..write('reviewCw: $reviewCw, ')
@@ -1279,6 +1315,7 @@ class Book extends DataClass implements Insertable<Book> {
     startDate,
     finishDate,
     stoppedDate,
+    coverId,
     rating,
     reviewName,
     reviewCw,
@@ -1316,6 +1353,7 @@ class Book extends DataClass implements Insertable<Book> {
           other.startDate == this.startDate &&
           other.finishDate == this.finishDate &&
           other.stoppedDate == this.stoppedDate &&
+          other.coverId == this.coverId &&
           other.rating == this.rating &&
           other.reviewName == this.reviewName &&
           other.reviewCw == this.reviewCw &&
@@ -1351,6 +1389,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<DateTime?> startDate;
   final Value<DateTime?> finishDate;
   final Value<DateTime?> stoppedDate;
+  final Value<int?> coverId;
   final Value<int?> rating;
   final Value<String?> reviewName;
   final Value<String?> reviewCw;
@@ -1384,6 +1423,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
+    this.coverId = const Value.absent(),
     this.rating = const Value.absent(),
     this.reviewName = const Value.absent(),
     this.reviewCw = const Value.absent(),
@@ -1418,6 +1458,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
+    this.coverId = const Value.absent(),
     this.rating = const Value.absent(),
     this.reviewName = const Value.absent(),
     this.reviewCw = const Value.absent(),
@@ -1452,6 +1493,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<DateTime>? startDate,
     Expression<DateTime>? finishDate,
     Expression<DateTime>? stoppedDate,
+    Expression<int>? coverId,
     Expression<int>? rating,
     Expression<String>? reviewName,
     Expression<String>? reviewCw,
@@ -1486,6 +1528,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (startDate != null) 'start_date': startDate,
       if (finishDate != null) 'finish_date': finishDate,
       if (stoppedDate != null) 'stopped_date': stoppedDate,
+      if (coverId != null) 'cover_id': coverId,
       if (rating != null) 'rating': rating,
       if (reviewName != null) 'review_name': reviewName,
       if (reviewCw != null) 'review_cw': reviewCw,
@@ -1522,6 +1565,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<DateTime?>? startDate,
     Value<DateTime?>? finishDate,
     Value<DateTime?>? stoppedDate,
+    Value<int?>? coverId,
     Value<int?>? rating,
     Value<String?>? reviewName,
     Value<String?>? reviewCw,
@@ -1556,6 +1600,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       startDate: startDate ?? this.startDate,
       finishDate: finishDate ?? this.finishDate,
       stoppedDate: stoppedDate ?? this.stoppedDate,
+      coverId: coverId ?? this.coverId,
       rating: rating ?? this.rating,
       reviewName: reviewName ?? this.reviewName,
       reviewCw: reviewCw ?? this.reviewCw,
@@ -1638,6 +1683,9 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (stoppedDate.present) {
       map['stopped_date'] = Variable<DateTime>(stoppedDate.value);
     }
+    if (coverId.present) {
+      map['cover_id'] = Variable<int>(coverId.value);
+    }
     if (rating.present) {
       map['rating'] = Variable<int>(rating.value);
     }
@@ -1696,6 +1744,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
+          ..write('coverId: $coverId, ')
           ..write('rating: $rating, ')
           ..write('reviewName: $reviewName, ')
           ..write('reviewCw: $reviewCw, ')
@@ -1746,6 +1795,7 @@ typedef $$BooksTableCreateCompanionBuilder =
       Value<DateTime?> startDate,
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
+      Value<int?> coverId,
       Value<int?> rating,
       Value<String?> reviewName,
       Value<String?> reviewCw,
@@ -1781,6 +1831,7 @@ typedef $$BooksTableUpdateCompanionBuilder =
       Value<DateTime?> startDate,
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
+      Value<int?> coverId,
       Value<int?> rating,
       Value<String?> reviewName,
       Value<String?> reviewCw,
@@ -1908,6 +1959,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<DateTime> get stoppedDate => $composableBuilder(
     column: $table.stoppedDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get coverId => $composableBuilder(
+    column: $table.coverId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2081,6 +2137,11 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get coverId => $composableBuilder(
+    column: $table.coverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get rating => $composableBuilder(
     column: $table.rating,
     builder: (column) => ColumnOrderings(column),
@@ -2223,6 +2284,9 @@ class $$BooksTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get coverId =>
+      $composableBuilder(column: $table.coverId, builder: (column) => column);
+
   GeneratedColumn<int> get rating =>
       $composableBuilder(column: $table.rating, builder: (column) => column);
 
@@ -2312,6 +2376,7 @@ class $$BooksTableTableManager
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
+                Value<int?> coverId = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 Value<String?> reviewName = const Value.absent(),
                 Value<String?> reviewCw = const Value.absent(),
@@ -2345,6 +2410,7 @@ class $$BooksTableTableManager
                 startDate: startDate,
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
+                coverId: coverId,
                 rating: rating,
                 reviewName: reviewName,
                 reviewCw: reviewCw,
@@ -2380,6 +2446,7 @@ class $$BooksTableTableManager
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
+                Value<int?> coverId = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 Value<String?> reviewName = const Value.absent(),
                 Value<String?> reviewCw = const Value.absent(),
@@ -2413,6 +2480,7 @@ class $$BooksTableTableManager
                 startDate: startDate,
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
+                coverId: coverId,
                 rating: rating,
                 reviewName: reviewName,
                 reviewCw: reviewCw,

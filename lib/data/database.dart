@@ -15,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -34,13 +34,18 @@ class AppDatabase extends _$AppDatabase {
         }
 
         if (from < 4) {
-          // Add pageCount column for v2/v3 -> v4
-          // We check if the column exists to be safe, but Drift's addColumn usually handles this or we can try/catch
           try {
             await m.addColumn(books, books.pageCount);
           } catch (e) {
-            // Column might already exist if v3 migration partially worked or something
             print('Error adding pageCount column: $e');
+          }
+        }
+
+        if (from < 5) {
+          try {
+            await m.addColumn(books, books.coverId);
+          } catch (e) {
+            print('Error adding coverId column: $e');
           }
         }
       },
