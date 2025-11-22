@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import 'bookshelf_detail_page.dart';
 
 class BookListView extends ConsumerWidget {
   final String status;
@@ -89,7 +90,12 @@ class BookListView extends ConsumerWidget {
                       )
                     : null,
                 onTap: () {
-                  // TODO: Navigate to details
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BookDetailsPage(bookId: book.id),
+                    ),
+                  );
                 },
               ),
             );

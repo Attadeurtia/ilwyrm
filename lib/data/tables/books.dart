@@ -24,6 +24,7 @@ class Books extends Table {
   TextColumn get isbn10 => text().named('isbn_10').nullable()();
   TextColumn get isbn13 => text().named('isbn_13').nullable()();
   TextColumn get oclcNumber => text().named('oclc_number').nullable()();
+  IntColumn get pageCount => integer().named('page_count').nullable()();
 
   // Reading Status & Dates
   DateTimeColumn get startDate => dateTime().named('start_date').nullable()();

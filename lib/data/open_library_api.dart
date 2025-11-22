@@ -6,7 +6,7 @@ class OpenLibraryApi {
 
   Future<List<OpenLibraryBook>> searchBooks(String query) async {
     final url = Uri.parse(
-      '$_baseUrl/search.json?q=${Uri.encodeComponent(query)}&fields=key,title,author_name,cover_i,first_publish_year,isbn&limit=20',
+      '$_baseUrl/search.json?q=${Uri.encodeComponent(query)}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median&limit=20',
     );
 
     final response = await http.get(url);
@@ -28,6 +28,7 @@ class OpenLibraryBook {
   final int? coverId;
   final int? firstPublishYear;
   final List<String>? isbns;
+  final int? numberOfPages;
 
   OpenLibraryBook({
     required this.key,
@@ -36,6 +37,7 @@ class OpenLibraryBook {
     this.coverId,
     this.firstPublishYear,
     this.isbns,
+    this.numberOfPages,
   });
 
   factory OpenLibraryBook.fromJson(Map<String, dynamic> json) {
@@ -48,6 +50,7 @@ class OpenLibraryBook {
       coverId: json['cover_i'],
       firstPublishYear: json['first_publish_year'],
       isbns: (json['isbn'] as List?)?.map((e) => e.toString()).toList(),
+      numberOfPages: json['number_of_pages_median'],
     );
   }
 

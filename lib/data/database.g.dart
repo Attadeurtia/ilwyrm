@@ -193,6 +193,17 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pageCountMeta = const VerificationMeta(
+    'pageCount',
+  );
+  @override
+  late final GeneratedColumn<int> pageCount = GeneratedColumn<int>(
+    'page_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _startDateMeta = const VerificationMeta(
     'startDate',
   );
@@ -356,6 +367,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     isbn10,
     isbn13,
     oclcNumber,
+    pageCount,
     startDate,
     finishDate,
     stoppedDate,
@@ -499,6 +511,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
       context.handle(
         _oclcNumberMeta,
         oclcNumber.isAcceptableOrUnknown(data['oclc_number']!, _oclcNumberMeta),
+      );
+    }
+    if (data.containsKey('page_count')) {
+      context.handle(
+        _pageCountMeta,
+        pageCount.isAcceptableOrUnknown(data['page_count']!, _pageCountMeta),
       );
     }
     if (data.containsKey('start_date')) {
@@ -672,6 +690,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.string,
         data['${effectivePrefix}oclc_number'],
       ),
+      pageCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page_count'],
+      ),
       startDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}start_date'],
@@ -752,6 +774,7 @@ class Book extends DataClass implements Insertable<Book> {
   final String? isbn10;
   final String? isbn13;
   final String? oclcNumber;
+  final int? pageCount;
   final DateTime? startDate;
   final DateTime? finishDate;
   final DateTime? stoppedDate;
@@ -784,6 +807,7 @@ class Book extends DataClass implements Insertable<Book> {
     this.isbn10,
     this.isbn13,
     this.oclcNumber,
+    this.pageCount,
     this.startDate,
     this.finishDate,
     this.stoppedDate,
@@ -850,6 +874,9 @@ class Book extends DataClass implements Insertable<Book> {
     }
     if (!nullToAbsent || oclcNumber != null) {
       map['oclc_number'] = Variable<String>(oclcNumber);
+    }
+    if (!nullToAbsent || pageCount != null) {
+      map['page_count'] = Variable<int>(pageCount);
     }
     if (!nullToAbsent || startDate != null) {
       map['start_date'] = Variable<DateTime>(startDate);
@@ -935,6 +962,9 @@ class Book extends DataClass implements Insertable<Book> {
       oclcNumber: oclcNumber == null && nullToAbsent
           ? const Value.absent()
           : Value(oclcNumber),
+      pageCount: pageCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pageCount),
       startDate: startDate == null && nullToAbsent
           ? const Value.absent()
           : Value(startDate),
@@ -995,6 +1025,7 @@ class Book extends DataClass implements Insertable<Book> {
       isbn10: serializer.fromJson<String?>(json['isbn10']),
       isbn13: serializer.fromJson<String?>(json['isbn13']),
       oclcNumber: serializer.fromJson<String?>(json['oclcNumber']),
+      pageCount: serializer.fromJson<int?>(json['pageCount']),
       startDate: serializer.fromJson<DateTime?>(json['startDate']),
       finishDate: serializer.fromJson<DateTime?>(json['finishDate']),
       stoppedDate: serializer.fromJson<DateTime?>(json['stoppedDate']),
@@ -1032,6 +1063,7 @@ class Book extends DataClass implements Insertable<Book> {
       'isbn10': serializer.toJson<String?>(isbn10),
       'isbn13': serializer.toJson<String?>(isbn13),
       'oclcNumber': serializer.toJson<String?>(oclcNumber),
+      'pageCount': serializer.toJson<int?>(pageCount),
       'startDate': serializer.toJson<DateTime?>(startDate),
       'finishDate': serializer.toJson<DateTime?>(finishDate),
       'stoppedDate': serializer.toJson<DateTime?>(stoppedDate),
@@ -1067,6 +1099,7 @@ class Book extends DataClass implements Insertable<Book> {
     Value<String?> isbn10 = const Value.absent(),
     Value<String?> isbn13 = const Value.absent(),
     Value<String?> oclcNumber = const Value.absent(),
+    Value<int?> pageCount = const Value.absent(),
     Value<DateTime?> startDate = const Value.absent(),
     Value<DateTime?> finishDate = const Value.absent(),
     Value<DateTime?> stoppedDate = const Value.absent(),
@@ -1103,6 +1136,7 @@ class Book extends DataClass implements Insertable<Book> {
     isbn10: isbn10.present ? isbn10.value : this.isbn10,
     isbn13: isbn13.present ? isbn13.value : this.isbn13,
     oclcNumber: oclcNumber.present ? oclcNumber.value : this.oclcNumber,
+    pageCount: pageCount.present ? pageCount.value : this.pageCount,
     startDate: startDate.present ? startDate.value : this.startDate,
     finishDate: finishDate.present ? finishDate.value : this.finishDate,
     stoppedDate: stoppedDate.present ? stoppedDate.value : this.stoppedDate,
@@ -1153,6 +1187,7 @@ class Book extends DataClass implements Insertable<Book> {
       oclcNumber: data.oclcNumber.present
           ? data.oclcNumber.value
           : this.oclcNumber,
+      pageCount: data.pageCount.present ? data.pageCount.value : this.pageCount,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       finishDate: data.finishDate.present
           ? data.finishDate.value
@@ -1202,6 +1237,7 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('isbn10: $isbn10, ')
           ..write('isbn13: $isbn13, ')
           ..write('oclcNumber: $oclcNumber, ')
+          ..write('pageCount: $pageCount, ')
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
@@ -1239,6 +1275,7 @@ class Book extends DataClass implements Insertable<Book> {
     isbn10,
     isbn13,
     oclcNumber,
+    pageCount,
     startDate,
     finishDate,
     stoppedDate,
@@ -1275,6 +1312,7 @@ class Book extends DataClass implements Insertable<Book> {
           other.isbn10 == this.isbn10 &&
           other.isbn13 == this.isbn13 &&
           other.oclcNumber == this.oclcNumber &&
+          other.pageCount == this.pageCount &&
           other.startDate == this.startDate &&
           other.finishDate == this.finishDate &&
           other.stoppedDate == this.stoppedDate &&
@@ -1309,6 +1347,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<String?> isbn10;
   final Value<String?> isbn13;
   final Value<String?> oclcNumber;
+  final Value<int?> pageCount;
   final Value<DateTime?> startDate;
   final Value<DateTime?> finishDate;
   final Value<DateTime?> stoppedDate;
@@ -1341,6 +1380,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.isbn10 = const Value.absent(),
     this.isbn13 = const Value.absent(),
     this.oclcNumber = const Value.absent(),
+    this.pageCount = const Value.absent(),
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
@@ -1374,6 +1414,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.isbn10 = const Value.absent(),
     this.isbn13 = const Value.absent(),
     this.oclcNumber = const Value.absent(),
+    this.pageCount = const Value.absent(),
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
@@ -1407,6 +1448,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<String>? isbn10,
     Expression<String>? isbn13,
     Expression<String>? oclcNumber,
+    Expression<int>? pageCount,
     Expression<DateTime>? startDate,
     Expression<DateTime>? finishDate,
     Expression<DateTime>? stoppedDate,
@@ -1440,6 +1482,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (isbn10 != null) 'isbn_10': isbn10,
       if (isbn13 != null) 'isbn_13': isbn13,
       if (oclcNumber != null) 'oclc_number': oclcNumber,
+      if (pageCount != null) 'page_count': pageCount,
       if (startDate != null) 'start_date': startDate,
       if (finishDate != null) 'finish_date': finishDate,
       if (stoppedDate != null) 'stopped_date': stoppedDate,
@@ -1475,6 +1518,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<String?>? isbn10,
     Value<String?>? isbn13,
     Value<String?>? oclcNumber,
+    Value<int?>? pageCount,
     Value<DateTime?>? startDate,
     Value<DateTime?>? finishDate,
     Value<DateTime?>? stoppedDate,
@@ -1508,6 +1552,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       isbn10: isbn10 ?? this.isbn10,
       isbn13: isbn13 ?? this.isbn13,
       oclcNumber: oclcNumber ?? this.oclcNumber,
+      pageCount: pageCount ?? this.pageCount,
       startDate: startDate ?? this.startDate,
       finishDate: finishDate ?? this.finishDate,
       stoppedDate: stoppedDate ?? this.stoppedDate,
@@ -1581,6 +1626,9 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (oclcNumber.present) {
       map['oclc_number'] = Variable<String>(oclcNumber.value);
     }
+    if (pageCount.present) {
+      map['page_count'] = Variable<int>(pageCount.value);
+    }
     if (startDate.present) {
       map['start_date'] = Variable<DateTime>(startDate.value);
     }
@@ -1644,6 +1692,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('isbn10: $isbn10, ')
           ..write('isbn13: $isbn13, ')
           ..write('oclcNumber: $oclcNumber, ')
+          ..write('pageCount: $pageCount, ')
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
@@ -1693,6 +1742,7 @@ typedef $$BooksTableCreateCompanionBuilder =
       Value<String?> isbn10,
       Value<String?> isbn13,
       Value<String?> oclcNumber,
+      Value<int?> pageCount,
       Value<DateTime?> startDate,
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
@@ -1727,6 +1777,7 @@ typedef $$BooksTableUpdateCompanionBuilder =
       Value<String?> isbn10,
       Value<String?> isbn13,
       Value<String?> oclcNumber,
+      Value<int?> pageCount,
       Value<DateTime?> startDate,
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
@@ -1837,6 +1888,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<String> get oclcNumber => $composableBuilder(
     column: $table.oclcNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pageCount => $composableBuilder(
+    column: $table.pageCount,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2005,6 +2061,11 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get pageCount => $composableBuilder(
+    column: $table.pageCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get startDate => $composableBuilder(
     column: $table.startDate,
     builder: (column) => ColumnOrderings(column),
@@ -2146,6 +2207,9 @@ class $$BooksTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get pageCount =>
+      $composableBuilder(column: $table.pageCount, builder: (column) => column);
+
   GeneratedColumn<DateTime> get startDate =>
       $composableBuilder(column: $table.startDate, builder: (column) => column);
 
@@ -2244,6 +2308,7 @@ class $$BooksTableTableManager
                 Value<String?> isbn10 = const Value.absent(),
                 Value<String?> isbn13 = const Value.absent(),
                 Value<String?> oclcNumber = const Value.absent(),
+                Value<int?> pageCount = const Value.absent(),
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
@@ -2276,6 +2341,7 @@ class $$BooksTableTableManager
                 isbn10: isbn10,
                 isbn13: isbn13,
                 oclcNumber: oclcNumber,
+                pageCount: pageCount,
                 startDate: startDate,
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
@@ -2310,6 +2376,7 @@ class $$BooksTableTableManager
                 Value<String?> isbn10 = const Value.absent(),
                 Value<String?> isbn13 = const Value.absent(),
                 Value<String?> oclcNumber = const Value.absent(),
+                Value<int?> pageCount = const Value.absent(),
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
@@ -2342,6 +2409,7 @@ class $$BooksTableTableManager
                 isbn10: isbn10,
                 isbn13: isbn13,
                 oclcNumber: oclcNumber,
+                pageCount: pageCount,
                 startDate: startDate,
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,

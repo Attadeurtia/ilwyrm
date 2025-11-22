@@ -6,8 +6,9 @@ import '../../data/open_library_api.dart';
 
 class EditBookPage extends ConsumerStatefulWidget {
   final OpenLibraryBook? initialBook;
+  final Book? existingBook;
 
-  const EditBookPage({super.key, this.initialBook});
+  const EditBookPage({super.key, this.initialBook, this.existingBook});
 
   @override
   ConsumerState<EditBookPage> createState() => _EditBookPageState();
@@ -22,12 +23,22 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(
-      text: widget.initialBook?.title ?? '',
-    );
-    _authorController = TextEditingController(
-      text: widget.initialBook?.authorText ?? '',
-    );
+    if (widget.existingBook != null) {
+      _titleController = TextEditingController(
+        text: widget.existingBook!.title,
+      );
+      _authorController = TextEditingController(
+        text: widget.existingBook!.authorText ?? '',
+      );
+      _status = widget.existingBook!.shelf;
+    } else {
+      _titleController = TextEditingController(
+        text: widget.initialBook?.title ?? '',
+      );
+      _authorController = TextEditingController(
+        text: widget.initialBook?.authorText ?? '',
+      );
+    }
   }
 
   @override
@@ -41,29 +52,50 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
     if (_formKey.currentState!.validate()) {
       final database = ref.read(databaseProvider);
 
-      final book = BooksCompanion(
-        title: drift.Value(_titleController.text),
-        authorText: drift.Value(_authorController.text),
-        shelf: drift.Value(_status),
-        shelfName: drift.Value(_getShelfName(_status)),
-        openlibraryKey: widget.initialBook?.key != null
-            ? drift.Value(widget.initialBook!.key)
-            : const drift.Value.absent(),
-        isbn13: widget.initialBook?.isbns?.isNotEmpty == true
-            ? drift.Value(widget.initialBook!.isbns!.first)
-            : const drift.Value.absent(),
-        dateAdded: drift.Value(DateTime.now()),
-        dateModified: drift.Value(DateTime.now()),
-      );
-
-      await database.into(database.books).insert(book);
+      if (widget.existingBook != null) {
+        // Update existing
+        await (database.update(
+          database.books,
+        )..where((tbl) => tbl.id.equals(widget.existingBook!.id))).write(
+          BooksCompanion(
+            title: drift.Value(_titleController.text),
+            authorText: drift.Value(_authorController.text),
+            shelf: drift.Value(_status),
+            shelfName: drift.Value(_getShelfName(_status)),
+            dateModified: drift.Value(DateTime.now()),
+          ),
+        );
+      } else {
+        // Insert new
+        final book = BooksCompanion(
+          title: drift.Value(_titleController.text),
+          authorText: drift.Value(_authorController.text),
+          shelf: drift.Value(_status),
+          shelfName: drift.Value(_getShelfName(_status)),
+          openlibraryKey: widget.initialBook?.key != null
+              ? drift.Value(widget.initialBook!.key)
+              : const drift.Value.absent(),
+          isbn13: widget.initialBook?.isbns?.isNotEmpty == true
+              ? drift.Value(widget.initialBook!.isbns!.first)
+              : const drift.Value.absent(),
+          pageCount: drift.Value(widget.initialBook?.numberOfPages),
+          dateAdded: drift.Value(DateTime.now()),
+          dateModified: drift.Value(DateTime.now()),
+        );
+        await database.into(database.books).insert(book);
+      }
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Livre ajouté !')));
-        // Pop back to home (pop search page then scanner page/home)
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.existingBook != null
+                  ? 'Livre modifié !'
+                  : 'Livre ajouté !',
+            ),
+          ),
+        );
+        Navigator.of(context).pop();
       }
     }
   }
@@ -83,9 +115,17 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
 
   @override
   Widget build(BuildContext context) {
+    final coverUrl = widget.existingBook?.openlibraryKey != null
+        ? 'https://covers.openlibrary.org/b/olid/${widget.existingBook!.openlibraryKey}-L.jpg'
+        : widget.initialBook?.coverUrl;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ajouter un livre'),
+        title: Text(
+          widget.existingBook != null
+              ? 'Modifier le livre'
+              : 'Ajouter un livre',
+        ),
         actions: [
           IconButton(icon: const Icon(Icons.check), onPressed: _saveBook),
         ],
@@ -95,14 +135,15 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (widget.initialBook?.coverUrl != null)
+            if (coverUrl != null)
               Center(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Image.network(
-                    widget.initialBook!.coverUrl!,
+                    coverUrl,
                     height: 150,
                     fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox(),
                   ),
                 ),
               ),
