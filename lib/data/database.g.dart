@@ -204,6 +204,17 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _currentPageMeta = const VerificationMeta(
+    'currentPage',
+  );
+  @override
+  late final GeneratedColumn<int> currentPage = GeneratedColumn<int>(
+    'current_page',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _startDateMeta = const VerificationMeta(
     'startDate',
   );
@@ -334,6 +345,21 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _dateAddedMeta = const VerificationMeta(
     'dateAdded',
   );
@@ -379,6 +405,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     isbn13,
     oclcNumber,
     pageCount,
+    currentPage,
     startDate,
     finishDate,
     stoppedDate,
@@ -391,6 +418,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     shelf,
     shelfName,
     shelfDate,
+    isFavorite,
     dateAdded,
     dateModified,
   ];
@@ -531,6 +559,15 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         pageCount.isAcceptableOrUnknown(data['page_count']!, _pageCountMeta),
       );
     }
+    if (data.containsKey('current_page')) {
+      context.handle(
+        _currentPageMeta,
+        currentPage.isAcceptableOrUnknown(
+          data['current_page']!,
+          _currentPageMeta,
+        ),
+      );
+    }
     if (data.containsKey('start_date')) {
       context.handle(
         _startDateMeta,
@@ -610,6 +647,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
       context.handle(
         _shelfDateMeta,
         shelfDate.isAcceptableOrUnknown(data['shelf_date']!, _shelfDateMeta),
+      );
+    }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
       );
     }
     if (data.containsKey('date_added')) {
@@ -712,6 +755,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.int,
         data['${effectivePrefix}page_count'],
       ),
+      currentPage: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}current_page'],
+      ),
       startDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}start_date'],
@@ -760,6 +807,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}shelf_date'],
       ),
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
       dateAdded: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}date_added'],
@@ -797,6 +848,7 @@ class Book extends DataClass implements Insertable<Book> {
   final String? isbn13;
   final String? oclcNumber;
   final int? pageCount;
+  final int? currentPage;
   final DateTime? startDate;
   final DateTime? finishDate;
   final DateTime? stoppedDate;
@@ -809,6 +861,7 @@ class Book extends DataClass implements Insertable<Book> {
   final String shelf;
   final String? shelfName;
   final DateTime? shelfDate;
+  final bool isFavorite;
   final DateTime dateAdded;
   final DateTime dateModified;
   const Book({
@@ -831,6 +884,7 @@ class Book extends DataClass implements Insertable<Book> {
     this.isbn13,
     this.oclcNumber,
     this.pageCount,
+    this.currentPage,
     this.startDate,
     this.finishDate,
     this.stoppedDate,
@@ -843,6 +897,7 @@ class Book extends DataClass implements Insertable<Book> {
     required this.shelf,
     this.shelfName,
     this.shelfDate,
+    required this.isFavorite,
     required this.dateAdded,
     required this.dateModified,
   });
@@ -902,6 +957,9 @@ class Book extends DataClass implements Insertable<Book> {
     if (!nullToAbsent || pageCount != null) {
       map['page_count'] = Variable<int>(pageCount);
     }
+    if (!nullToAbsent || currentPage != null) {
+      map['current_page'] = Variable<int>(currentPage);
+    }
     if (!nullToAbsent || startDate != null) {
       map['start_date'] = Variable<DateTime>(startDate);
     }
@@ -936,6 +994,7 @@ class Book extends DataClass implements Insertable<Book> {
     if (!nullToAbsent || shelfDate != null) {
       map['shelf_date'] = Variable<DateTime>(shelfDate);
     }
+    map['is_favorite'] = Variable<bool>(isFavorite);
     map['date_added'] = Variable<DateTime>(dateAdded);
     map['date_modified'] = Variable<DateTime>(dateModified);
     return map;
@@ -992,6 +1051,9 @@ class Book extends DataClass implements Insertable<Book> {
       pageCount: pageCount == null && nullToAbsent
           ? const Value.absent()
           : Value(pageCount),
+      currentPage: currentPage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(currentPage),
       startDate: startDate == null && nullToAbsent
           ? const Value.absent()
           : Value(startDate),
@@ -1026,6 +1088,7 @@ class Book extends DataClass implements Insertable<Book> {
       shelfDate: shelfDate == null && nullToAbsent
           ? const Value.absent()
           : Value(shelfDate),
+      isFavorite: Value(isFavorite),
       dateAdded: Value(dateAdded),
       dateModified: Value(dateModified),
     );
@@ -1056,6 +1119,7 @@ class Book extends DataClass implements Insertable<Book> {
       isbn13: serializer.fromJson<String?>(json['isbn13']),
       oclcNumber: serializer.fromJson<String?>(json['oclcNumber']),
       pageCount: serializer.fromJson<int?>(json['pageCount']),
+      currentPage: serializer.fromJson<int?>(json['currentPage']),
       startDate: serializer.fromJson<DateTime?>(json['startDate']),
       finishDate: serializer.fromJson<DateTime?>(json['finishDate']),
       stoppedDate: serializer.fromJson<DateTime?>(json['stoppedDate']),
@@ -1068,6 +1132,7 @@ class Book extends DataClass implements Insertable<Book> {
       shelf: serializer.fromJson<String>(json['shelf']),
       shelfName: serializer.fromJson<String?>(json['shelfName']),
       shelfDate: serializer.fromJson<DateTime?>(json['shelfDate']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       dateAdded: serializer.fromJson<DateTime>(json['dateAdded']),
       dateModified: serializer.fromJson<DateTime>(json['dateModified']),
     );
@@ -1095,6 +1160,7 @@ class Book extends DataClass implements Insertable<Book> {
       'isbn13': serializer.toJson<String?>(isbn13),
       'oclcNumber': serializer.toJson<String?>(oclcNumber),
       'pageCount': serializer.toJson<int?>(pageCount),
+      'currentPage': serializer.toJson<int?>(currentPage),
       'startDate': serializer.toJson<DateTime?>(startDate),
       'finishDate': serializer.toJson<DateTime?>(finishDate),
       'stoppedDate': serializer.toJson<DateTime?>(stoppedDate),
@@ -1107,6 +1173,7 @@ class Book extends DataClass implements Insertable<Book> {
       'shelf': serializer.toJson<String>(shelf),
       'shelfName': serializer.toJson<String?>(shelfName),
       'shelfDate': serializer.toJson<DateTime?>(shelfDate),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
       'dateAdded': serializer.toJson<DateTime>(dateAdded),
       'dateModified': serializer.toJson<DateTime>(dateModified),
     };
@@ -1132,6 +1199,7 @@ class Book extends DataClass implements Insertable<Book> {
     Value<String?> isbn13 = const Value.absent(),
     Value<String?> oclcNumber = const Value.absent(),
     Value<int?> pageCount = const Value.absent(),
+    Value<int?> currentPage = const Value.absent(),
     Value<DateTime?> startDate = const Value.absent(),
     Value<DateTime?> finishDate = const Value.absent(),
     Value<DateTime?> stoppedDate = const Value.absent(),
@@ -1144,6 +1212,7 @@ class Book extends DataClass implements Insertable<Book> {
     String? shelf,
     Value<String?> shelfName = const Value.absent(),
     Value<DateTime?> shelfDate = const Value.absent(),
+    bool? isFavorite,
     DateTime? dateAdded,
     DateTime? dateModified,
   }) => Book(
@@ -1170,6 +1239,7 @@ class Book extends DataClass implements Insertable<Book> {
     isbn13: isbn13.present ? isbn13.value : this.isbn13,
     oclcNumber: oclcNumber.present ? oclcNumber.value : this.oclcNumber,
     pageCount: pageCount.present ? pageCount.value : this.pageCount,
+    currentPage: currentPage.present ? currentPage.value : this.currentPage,
     startDate: startDate.present ? startDate.value : this.startDate,
     finishDate: finishDate.present ? finishDate.value : this.finishDate,
     stoppedDate: stoppedDate.present ? stoppedDate.value : this.stoppedDate,
@@ -1186,6 +1256,7 @@ class Book extends DataClass implements Insertable<Book> {
     shelf: shelf ?? this.shelf,
     shelfName: shelfName.present ? shelfName.value : this.shelfName,
     shelfDate: shelfDate.present ? shelfDate.value : this.shelfDate,
+    isFavorite: isFavorite ?? this.isFavorite,
     dateAdded: dateAdded ?? this.dateAdded,
     dateModified: dateModified ?? this.dateModified,
   );
@@ -1222,6 +1293,9 @@ class Book extends DataClass implements Insertable<Book> {
           ? data.oclcNumber.value
           : this.oclcNumber,
       pageCount: data.pageCount.present ? data.pageCount.value : this.pageCount,
+      currentPage: data.currentPage.present
+          ? data.currentPage.value
+          : this.currentPage,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       finishDate: data.finishDate.present
           ? data.finishDate.value
@@ -1244,6 +1318,9 @@ class Book extends DataClass implements Insertable<Book> {
       shelf: data.shelf.present ? data.shelf.value : this.shelf,
       shelfName: data.shelfName.present ? data.shelfName.value : this.shelfName,
       shelfDate: data.shelfDate.present ? data.shelfDate.value : this.shelfDate,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
       dateAdded: data.dateAdded.present ? data.dateAdded.value : this.dateAdded,
       dateModified: data.dateModified.present
           ? data.dateModified.value
@@ -1273,6 +1350,7 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('isbn13: $isbn13, ')
           ..write('oclcNumber: $oclcNumber, ')
           ..write('pageCount: $pageCount, ')
+          ..write('currentPage: $currentPage, ')
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
@@ -1285,6 +1363,7 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('shelf: $shelf, ')
           ..write('shelfName: $shelfName, ')
           ..write('shelfDate: $shelfDate, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('dateAdded: $dateAdded, ')
           ..write('dateModified: $dateModified')
           ..write(')'))
@@ -1312,6 +1391,7 @@ class Book extends DataClass implements Insertable<Book> {
     isbn13,
     oclcNumber,
     pageCount,
+    currentPage,
     startDate,
     finishDate,
     stoppedDate,
@@ -1324,6 +1404,7 @@ class Book extends DataClass implements Insertable<Book> {
     shelf,
     shelfName,
     shelfDate,
+    isFavorite,
     dateAdded,
     dateModified,
   ]);
@@ -1350,6 +1431,7 @@ class Book extends DataClass implements Insertable<Book> {
           other.isbn13 == this.isbn13 &&
           other.oclcNumber == this.oclcNumber &&
           other.pageCount == this.pageCount &&
+          other.currentPage == this.currentPage &&
           other.startDate == this.startDate &&
           other.finishDate == this.finishDate &&
           other.stoppedDate == this.stoppedDate &&
@@ -1362,6 +1444,7 @@ class Book extends DataClass implements Insertable<Book> {
           other.shelf == this.shelf &&
           other.shelfName == this.shelfName &&
           other.shelfDate == this.shelfDate &&
+          other.isFavorite == this.isFavorite &&
           other.dateAdded == this.dateAdded &&
           other.dateModified == this.dateModified);
 }
@@ -1386,6 +1469,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<String?> isbn13;
   final Value<String?> oclcNumber;
   final Value<int?> pageCount;
+  final Value<int?> currentPage;
   final Value<DateTime?> startDate;
   final Value<DateTime?> finishDate;
   final Value<DateTime?> stoppedDate;
@@ -1398,6 +1482,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<String> shelf;
   final Value<String?> shelfName;
   final Value<DateTime?> shelfDate;
+  final Value<bool> isFavorite;
   final Value<DateTime> dateAdded;
   final Value<DateTime> dateModified;
   const BooksCompanion({
@@ -1420,6 +1505,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.isbn13 = const Value.absent(),
     this.oclcNumber = const Value.absent(),
     this.pageCount = const Value.absent(),
+    this.currentPage = const Value.absent(),
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
@@ -1432,6 +1518,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.shelf = const Value.absent(),
     this.shelfName = const Value.absent(),
     this.shelfDate = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.dateAdded = const Value.absent(),
     this.dateModified = const Value.absent(),
   });
@@ -1455,6 +1542,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.isbn13 = const Value.absent(),
     this.oclcNumber = const Value.absent(),
     this.pageCount = const Value.absent(),
+    this.currentPage = const Value.absent(),
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
@@ -1467,6 +1555,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.shelf = const Value.absent(),
     this.shelfName = const Value.absent(),
     this.shelfDate = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.dateAdded = const Value.absent(),
     this.dateModified = const Value.absent(),
   }) : title = Value(title);
@@ -1490,6 +1579,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<String>? isbn13,
     Expression<String>? oclcNumber,
     Expression<int>? pageCount,
+    Expression<int>? currentPage,
     Expression<DateTime>? startDate,
     Expression<DateTime>? finishDate,
     Expression<DateTime>? stoppedDate,
@@ -1502,6 +1592,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<String>? shelf,
     Expression<String>? shelfName,
     Expression<DateTime>? shelfDate,
+    Expression<bool>? isFavorite,
     Expression<DateTime>? dateAdded,
     Expression<DateTime>? dateModified,
   }) {
@@ -1525,6 +1616,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (isbn13 != null) 'isbn_13': isbn13,
       if (oclcNumber != null) 'oclc_number': oclcNumber,
       if (pageCount != null) 'page_count': pageCount,
+      if (currentPage != null) 'current_page': currentPage,
       if (startDate != null) 'start_date': startDate,
       if (finishDate != null) 'finish_date': finishDate,
       if (stoppedDate != null) 'stopped_date': stoppedDate,
@@ -1537,6 +1629,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (shelf != null) 'shelf': shelf,
       if (shelfName != null) 'shelf_name': shelfName,
       if (shelfDate != null) 'shelf_date': shelfDate,
+      if (isFavorite != null) 'is_favorite': isFavorite,
       if (dateAdded != null) 'date_added': dateAdded,
       if (dateModified != null) 'date_modified': dateModified,
     });
@@ -1562,6 +1655,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<String?>? isbn13,
     Value<String?>? oclcNumber,
     Value<int?>? pageCount,
+    Value<int?>? currentPage,
     Value<DateTime?>? startDate,
     Value<DateTime?>? finishDate,
     Value<DateTime?>? stoppedDate,
@@ -1574,6 +1668,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<String>? shelf,
     Value<String?>? shelfName,
     Value<DateTime?>? shelfDate,
+    Value<bool>? isFavorite,
     Value<DateTime>? dateAdded,
     Value<DateTime>? dateModified,
   }) {
@@ -1597,6 +1692,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       isbn13: isbn13 ?? this.isbn13,
       oclcNumber: oclcNumber ?? this.oclcNumber,
       pageCount: pageCount ?? this.pageCount,
+      currentPage: currentPage ?? this.currentPage,
       startDate: startDate ?? this.startDate,
       finishDate: finishDate ?? this.finishDate,
       stoppedDate: stoppedDate ?? this.stoppedDate,
@@ -1609,6 +1705,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       shelf: shelf ?? this.shelf,
       shelfName: shelfName ?? this.shelfName,
       shelfDate: shelfDate ?? this.shelfDate,
+      isFavorite: isFavorite ?? this.isFavorite,
       dateAdded: dateAdded ?? this.dateAdded,
       dateModified: dateModified ?? this.dateModified,
     );
@@ -1674,6 +1771,9 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (pageCount.present) {
       map['page_count'] = Variable<int>(pageCount.value);
     }
+    if (currentPage.present) {
+      map['current_page'] = Variable<int>(currentPage.value);
+    }
     if (startDate.present) {
       map['start_date'] = Variable<DateTime>(startDate.value);
     }
@@ -1710,6 +1810,9 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (shelfDate.present) {
       map['shelf_date'] = Variable<DateTime>(shelfDate.value);
     }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
+    }
     if (dateAdded.present) {
       map['date_added'] = Variable<DateTime>(dateAdded.value);
     }
@@ -1741,6 +1844,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('isbn13: $isbn13, ')
           ..write('oclcNumber: $oclcNumber, ')
           ..write('pageCount: $pageCount, ')
+          ..write('currentPage: $currentPage, ')
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
@@ -1753,6 +1857,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('shelf: $shelf, ')
           ..write('shelfName: $shelfName, ')
           ..write('shelfDate: $shelfDate, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('dateAdded: $dateAdded, ')
           ..write('dateModified: $dateModified')
           ..write(')'))
@@ -1792,6 +1897,7 @@ typedef $$BooksTableCreateCompanionBuilder =
       Value<String?> isbn13,
       Value<String?> oclcNumber,
       Value<int?> pageCount,
+      Value<int?> currentPage,
       Value<DateTime?> startDate,
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
@@ -1804,6 +1910,7 @@ typedef $$BooksTableCreateCompanionBuilder =
       Value<String> shelf,
       Value<String?> shelfName,
       Value<DateTime?> shelfDate,
+      Value<bool> isFavorite,
       Value<DateTime> dateAdded,
       Value<DateTime> dateModified,
     });
@@ -1828,6 +1935,7 @@ typedef $$BooksTableUpdateCompanionBuilder =
       Value<String?> isbn13,
       Value<String?> oclcNumber,
       Value<int?> pageCount,
+      Value<int?> currentPage,
       Value<DateTime?> startDate,
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
@@ -1840,6 +1948,7 @@ typedef $$BooksTableUpdateCompanionBuilder =
       Value<String> shelf,
       Value<String?> shelfName,
       Value<DateTime?> shelfDate,
+      Value<bool> isFavorite,
       Value<DateTime> dateAdded,
       Value<DateTime> dateModified,
     });
@@ -1947,6 +2056,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get currentPage => $composableBuilder(
+    column: $table.currentPage,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get startDate => $composableBuilder(
     column: $table.startDate,
     builder: (column) => ColumnFilters(column),
@@ -2004,6 +2118,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<DateTime> get shelfDate => $composableBuilder(
     column: $table.shelfDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2122,6 +2241,11 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get currentPage => $composableBuilder(
+    column: $table.currentPage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get startDate => $composableBuilder(
     column: $table.startDate,
     builder: (column) => ColumnOrderings(column),
@@ -2179,6 +2303,11 @@ class $$BooksTableOrderingComposer
 
   ColumnOrderings<DateTime> get shelfDate => $composableBuilder(
     column: $table.shelfDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -2271,6 +2400,11 @@ class $$BooksTableAnnotationComposer
   GeneratedColumn<int> get pageCount =>
       $composableBuilder(column: $table.pageCount, builder: (column) => column);
 
+  GeneratedColumn<int> get currentPage => $composableBuilder(
+    column: $table.currentPage,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get startDate =>
       $composableBuilder(column: $table.startDate, builder: (column) => column);
 
@@ -2316,6 +2450,11 @@ class $$BooksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get shelfDate =>
       $composableBuilder(column: $table.shelfDate, builder: (column) => column);
+
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get dateAdded =>
       $composableBuilder(column: $table.dateAdded, builder: (column) => column);
@@ -2373,6 +2512,7 @@ class $$BooksTableTableManager
                 Value<String?> isbn13 = const Value.absent(),
                 Value<String?> oclcNumber = const Value.absent(),
                 Value<int?> pageCount = const Value.absent(),
+                Value<int?> currentPage = const Value.absent(),
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
@@ -2385,6 +2525,7 @@ class $$BooksTableTableManager
                 Value<String> shelf = const Value.absent(),
                 Value<String?> shelfName = const Value.absent(),
                 Value<DateTime?> shelfDate = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<DateTime> dateAdded = const Value.absent(),
                 Value<DateTime> dateModified = const Value.absent(),
               }) => BooksCompanion(
@@ -2407,6 +2548,7 @@ class $$BooksTableTableManager
                 isbn13: isbn13,
                 oclcNumber: oclcNumber,
                 pageCount: pageCount,
+                currentPage: currentPage,
                 startDate: startDate,
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
@@ -2419,6 +2561,7 @@ class $$BooksTableTableManager
                 shelf: shelf,
                 shelfName: shelfName,
                 shelfDate: shelfDate,
+                isFavorite: isFavorite,
                 dateAdded: dateAdded,
                 dateModified: dateModified,
               ),
@@ -2443,6 +2586,7 @@ class $$BooksTableTableManager
                 Value<String?> isbn13 = const Value.absent(),
                 Value<String?> oclcNumber = const Value.absent(),
                 Value<int?> pageCount = const Value.absent(),
+                Value<int?> currentPage = const Value.absent(),
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
@@ -2455,6 +2599,7 @@ class $$BooksTableTableManager
                 Value<String> shelf = const Value.absent(),
                 Value<String?> shelfName = const Value.absent(),
                 Value<DateTime?> shelfDate = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<DateTime> dateAdded = const Value.absent(),
                 Value<DateTime> dateModified = const Value.absent(),
               }) => BooksCompanion.insert(
@@ -2477,6 +2622,7 @@ class $$BooksTableTableManager
                 isbn13: isbn13,
                 oclcNumber: oclcNumber,
                 pageCount: pageCount,
+                currentPage: currentPage,
                 startDate: startDate,
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
@@ -2489,6 +2635,7 @@ class $$BooksTableTableManager
                 shelf: shelf,
                 shelfName: shelfName,
                 shelfDate: shelfDate,
+                isFavorite: isFavorite,
                 dateAdded: dateAdded,
                 dateModified: dateModified,
               ),

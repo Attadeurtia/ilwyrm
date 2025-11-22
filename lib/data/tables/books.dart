@@ -25,6 +25,7 @@ class Books extends Table {
   TextColumn get isbn13 => text().named('isbn_13').nullable()();
   TextColumn get oclcNumber => text().named('oclc_number').nullable()();
   IntColumn get pageCount => integer().named('page_count').nullable()();
+  IntColumn get currentPage => integer().named('current_page').nullable()();
 
   // Reading Status & Dates
   DateTimeColumn get startDate => dateTime().named('start_date').nullable()();
@@ -49,6 +50,7 @@ class Books extends Table {
   DateTimeColumn get shelfDate => dateTime().named('shelf_date').nullable()();
 
   // Local Metadata
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
   DateTimeColumn get dateAdded => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get dateModified =>
       dateTime().withDefault(currentDateAndTime)();
