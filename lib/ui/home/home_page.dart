@@ -49,7 +49,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 );
               },
               child: CircleAvatar(
-                backgroundColor: const Color(0xFF006978),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 child: Text(
                   'A',
                   style: TextStyle(

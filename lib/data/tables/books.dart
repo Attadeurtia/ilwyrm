@@ -35,6 +35,7 @@ class Books extends Table {
 
   // Review & Rating
   IntColumn get coverId => integer().nullable()();
+  TextColumn get coverPath => text().named('cover_path').nullable()();
   IntColumn get rating => integer().nullable()(); // Assuming 1-5 stars
   TextColumn get reviewName => text().named('review_name').nullable()();
   TextColumn get reviewCw =>

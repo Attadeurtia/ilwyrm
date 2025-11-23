@@ -67,6 +67,16 @@ class _SearchBookPageState extends State<SearchBookPage> {
         ),
         actions: [
           IconButton(icon: const Icon(Icons.search), onPressed: _search),
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Ajouter manuellement',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const EditBookPage()),
+              );
+            },
+          ),
         ],
       ),
       body: _isLoading

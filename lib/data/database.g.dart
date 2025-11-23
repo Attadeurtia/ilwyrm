@@ -259,6 +259,17 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _coverPathMeta = const VerificationMeta(
+    'coverPath',
+  );
+  @override
+  late final GeneratedColumn<String> coverPath = GeneratedColumn<String>(
+    'cover_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _ratingMeta = const VerificationMeta('rating');
   @override
   late final GeneratedColumn<int> rating = GeneratedColumn<int>(
@@ -410,6 +421,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     finishDate,
     stoppedDate,
     coverId,
+    coverPath,
     rating,
     reviewName,
     reviewCw,
@@ -595,6 +607,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         coverId.isAcceptableOrUnknown(data['cover_id']!, _coverIdMeta),
       );
     }
+    if (data.containsKey('cover_path')) {
+      context.handle(
+        _coverPathMeta,
+        coverPath.isAcceptableOrUnknown(data['cover_path']!, _coverPathMeta),
+      );
+    }
     if (data.containsKey('rating')) {
       context.handle(
         _ratingMeta,
@@ -775,6 +793,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.int,
         data['${effectivePrefix}cover_id'],
       ),
+      coverPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_path'],
+      ),
       rating: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}rating'],
@@ -853,6 +875,7 @@ class Book extends DataClass implements Insertable<Book> {
   final DateTime? finishDate;
   final DateTime? stoppedDate;
   final int? coverId;
+  final String? coverPath;
   final int? rating;
   final String? reviewName;
   final String? reviewCw;
@@ -889,6 +912,7 @@ class Book extends DataClass implements Insertable<Book> {
     this.finishDate,
     this.stoppedDate,
     this.coverId,
+    this.coverPath,
     this.rating,
     this.reviewName,
     this.reviewCw,
@@ -971,6 +995,9 @@ class Book extends DataClass implements Insertable<Book> {
     }
     if (!nullToAbsent || coverId != null) {
       map['cover_id'] = Variable<int>(coverId);
+    }
+    if (!nullToAbsent || coverPath != null) {
+      map['cover_path'] = Variable<String>(coverPath);
     }
     if (!nullToAbsent || rating != null) {
       map['rating'] = Variable<int>(rating);
@@ -1066,6 +1093,9 @@ class Book extends DataClass implements Insertable<Book> {
       coverId: coverId == null && nullToAbsent
           ? const Value.absent()
           : Value(coverId),
+      coverPath: coverPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverPath),
       rating: rating == null && nullToAbsent
           ? const Value.absent()
           : Value(rating),
@@ -1124,6 +1154,7 @@ class Book extends DataClass implements Insertable<Book> {
       finishDate: serializer.fromJson<DateTime?>(json['finishDate']),
       stoppedDate: serializer.fromJson<DateTime?>(json['stoppedDate']),
       coverId: serializer.fromJson<int?>(json['coverId']),
+      coverPath: serializer.fromJson<String?>(json['coverPath']),
       rating: serializer.fromJson<int?>(json['rating']),
       reviewName: serializer.fromJson<String?>(json['reviewName']),
       reviewCw: serializer.fromJson<String?>(json['reviewCw']),
@@ -1165,6 +1196,7 @@ class Book extends DataClass implements Insertable<Book> {
       'finishDate': serializer.toJson<DateTime?>(finishDate),
       'stoppedDate': serializer.toJson<DateTime?>(stoppedDate),
       'coverId': serializer.toJson<int?>(coverId),
+      'coverPath': serializer.toJson<String?>(coverPath),
       'rating': serializer.toJson<int?>(rating),
       'reviewName': serializer.toJson<String?>(reviewName),
       'reviewCw': serializer.toJson<String?>(reviewCw),
@@ -1204,6 +1236,7 @@ class Book extends DataClass implements Insertable<Book> {
     Value<DateTime?> finishDate = const Value.absent(),
     Value<DateTime?> stoppedDate = const Value.absent(),
     Value<int?> coverId = const Value.absent(),
+    Value<String?> coverPath = const Value.absent(),
     Value<int?> rating = const Value.absent(),
     Value<String?> reviewName = const Value.absent(),
     Value<String?> reviewCw = const Value.absent(),
@@ -1244,6 +1277,7 @@ class Book extends DataClass implements Insertable<Book> {
     finishDate: finishDate.present ? finishDate.value : this.finishDate,
     stoppedDate: stoppedDate.present ? stoppedDate.value : this.stoppedDate,
     coverId: coverId.present ? coverId.value : this.coverId,
+    coverPath: coverPath.present ? coverPath.value : this.coverPath,
     rating: rating.present ? rating.value : this.rating,
     reviewName: reviewName.present ? reviewName.value : this.reviewName,
     reviewCw: reviewCw.present ? reviewCw.value : this.reviewCw,
@@ -1304,6 +1338,7 @@ class Book extends DataClass implements Insertable<Book> {
           ? data.stoppedDate.value
           : this.stoppedDate,
       coverId: data.coverId.present ? data.coverId.value : this.coverId,
+      coverPath: data.coverPath.present ? data.coverPath.value : this.coverPath,
       rating: data.rating.present ? data.rating.value : this.rating,
       reviewName: data.reviewName.present
           ? data.reviewName.value
@@ -1355,6 +1390,7 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
           ..write('coverId: $coverId, ')
+          ..write('coverPath: $coverPath, ')
           ..write('rating: $rating, ')
           ..write('reviewName: $reviewName, ')
           ..write('reviewCw: $reviewCw, ')
@@ -1396,6 +1432,7 @@ class Book extends DataClass implements Insertable<Book> {
     finishDate,
     stoppedDate,
     coverId,
+    coverPath,
     rating,
     reviewName,
     reviewCw,
@@ -1436,6 +1473,7 @@ class Book extends DataClass implements Insertable<Book> {
           other.finishDate == this.finishDate &&
           other.stoppedDate == this.stoppedDate &&
           other.coverId == this.coverId &&
+          other.coverPath == this.coverPath &&
           other.rating == this.rating &&
           other.reviewName == this.reviewName &&
           other.reviewCw == this.reviewCw &&
@@ -1474,6 +1512,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<DateTime?> finishDate;
   final Value<DateTime?> stoppedDate;
   final Value<int?> coverId;
+  final Value<String?> coverPath;
   final Value<int?> rating;
   final Value<String?> reviewName;
   final Value<String?> reviewCw;
@@ -1510,6 +1549,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
     this.coverId = const Value.absent(),
+    this.coverPath = const Value.absent(),
     this.rating = const Value.absent(),
     this.reviewName = const Value.absent(),
     this.reviewCw = const Value.absent(),
@@ -1547,6 +1587,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
     this.coverId = const Value.absent(),
+    this.coverPath = const Value.absent(),
     this.rating = const Value.absent(),
     this.reviewName = const Value.absent(),
     this.reviewCw = const Value.absent(),
@@ -1584,6 +1625,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<DateTime>? finishDate,
     Expression<DateTime>? stoppedDate,
     Expression<int>? coverId,
+    Expression<String>? coverPath,
     Expression<int>? rating,
     Expression<String>? reviewName,
     Expression<String>? reviewCw,
@@ -1621,6 +1663,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (finishDate != null) 'finish_date': finishDate,
       if (stoppedDate != null) 'stopped_date': stoppedDate,
       if (coverId != null) 'cover_id': coverId,
+      if (coverPath != null) 'cover_path': coverPath,
       if (rating != null) 'rating': rating,
       if (reviewName != null) 'review_name': reviewName,
       if (reviewCw != null) 'review_cw': reviewCw,
@@ -1660,6 +1703,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<DateTime?>? finishDate,
     Value<DateTime?>? stoppedDate,
     Value<int?>? coverId,
+    Value<String?>? coverPath,
     Value<int?>? rating,
     Value<String?>? reviewName,
     Value<String?>? reviewCw,
@@ -1697,6 +1741,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       finishDate: finishDate ?? this.finishDate,
       stoppedDate: stoppedDate ?? this.stoppedDate,
       coverId: coverId ?? this.coverId,
+      coverPath: coverPath ?? this.coverPath,
       rating: rating ?? this.rating,
       reviewName: reviewName ?? this.reviewName,
       reviewCw: reviewCw ?? this.reviewCw,
@@ -1786,6 +1831,9 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (coverId.present) {
       map['cover_id'] = Variable<int>(coverId.value);
     }
+    if (coverPath.present) {
+      map['cover_path'] = Variable<String>(coverPath.value);
+    }
     if (rating.present) {
       map['rating'] = Variable<int>(rating.value);
     }
@@ -1849,6 +1897,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
           ..write('coverId: $coverId, ')
+          ..write('coverPath: $coverPath, ')
           ..write('rating: $rating, ')
           ..write('reviewName: $reviewName, ')
           ..write('reviewCw: $reviewCw, ')
@@ -1902,6 +1951,7 @@ typedef $$BooksTableCreateCompanionBuilder =
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
       Value<int?> coverId,
+      Value<String?> coverPath,
       Value<int?> rating,
       Value<String?> reviewName,
       Value<String?> reviewCw,
@@ -1940,6 +1990,7 @@ typedef $$BooksTableUpdateCompanionBuilder =
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
       Value<int?> coverId,
+      Value<String?> coverPath,
       Value<int?> rating,
       Value<String?> reviewName,
       Value<String?> reviewCw,
@@ -2078,6 +2129,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<int> get coverId => $composableBuilder(
     column: $table.coverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverPath => $composableBuilder(
+    column: $table.coverPath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2266,6 +2322,11 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get coverPath => $composableBuilder(
+    column: $table.coverPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get rating => $composableBuilder(
     column: $table.rating,
     builder: (column) => ColumnOrderings(column),
@@ -2421,6 +2482,9 @@ class $$BooksTableAnnotationComposer
   GeneratedColumn<int> get coverId =>
       $composableBuilder(column: $table.coverId, builder: (column) => column);
 
+  GeneratedColumn<String> get coverPath =>
+      $composableBuilder(column: $table.coverPath, builder: (column) => column);
+
   GeneratedColumn<int> get rating =>
       $composableBuilder(column: $table.rating, builder: (column) => column);
 
@@ -2517,6 +2581,7 @@ class $$BooksTableTableManager
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
                 Value<int?> coverId = const Value.absent(),
+                Value<String?> coverPath = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 Value<String?> reviewName = const Value.absent(),
                 Value<String?> reviewCw = const Value.absent(),
@@ -2553,6 +2618,7 @@ class $$BooksTableTableManager
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
                 coverId: coverId,
+                coverPath: coverPath,
                 rating: rating,
                 reviewName: reviewName,
                 reviewCw: reviewCw,
@@ -2591,6 +2657,7 @@ class $$BooksTableTableManager
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
                 Value<int?> coverId = const Value.absent(),
+                Value<String?> coverPath = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 Value<String?> reviewName = const Value.absent(),
                 Value<String?> reviewCw = const Value.absent(),
@@ -2627,6 +2694,7 @@ class $$BooksTableTableManager
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
                 coverId: coverId,
+                coverPath: coverPath,
                 rating: rating,
                 reviewName: reviewName,
                 reviewCw: reviewCw,

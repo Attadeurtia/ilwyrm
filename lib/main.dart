@@ -32,7 +32,7 @@ class IlwyrmApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6750A4), // M3 Purple seed
+          seedColor: const Color(0xFF006978),
           brightness: Brightness.light,
         ),
         textTheme: GoogleFonts.outfitTextTheme(),
@@ -40,7 +40,7 @@ class IlwyrmApp extends StatelessWidget {
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFD0BCFF), // M3 Purple seed for dark
+          seedColor: const Color(0xFF006978),
           brightness: Brightness.dark,
         ),
         textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),

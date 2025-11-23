@@ -35,7 +35,9 @@ class BookDetailsPage extends ConsumerWidget {
               IconButton(
                 icon: Icon(
                   book.isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: book.isFavorite ? Colors.red : null,
+                  color: book.isFavorite
+                      ? Theme.of(context).colorScheme.error
+                      : null,
                 ),
                 onPressed: () {
                   final database = ref.read(databaseProvider);
@@ -65,9 +67,11 @@ class BookDetailsPage extends ConsumerWidget {
                     },
                   ),
                   PopupMenuItem(
-                    child: const Text(
+                    child: Text(
                       'Supprimer',
-                      style: TextStyle(color: Colors.red),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                     onTap: () {
                       Future.delayed(const Duration(seconds: 0), () {
@@ -157,13 +161,15 @@ class BookDetailsPage extends ConsumerWidget {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF006978),
+                                color: Theme.of(context).colorScheme.primary,
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
                                 book.authorText ?? 'Auteur inconnu',
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -398,7 +404,9 @@ class BookDetailsPage extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('Supprimer'),
           ),
         ],

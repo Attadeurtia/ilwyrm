@@ -15,7 +15,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -62,6 +62,14 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(books, books.isFavorite);
           } catch (e) {
             print('Error adding isFavorite column: $e');
+          }
+        }
+
+        if (from < 8) {
+          try {
+            await m.addColumn(books, books.coverPath);
+          } catch (e) {
+            print('Error adding coverPath column: $e');
           }
         }
       },
