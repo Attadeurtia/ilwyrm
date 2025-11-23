@@ -5,6 +5,7 @@ import 'bookshelf_detail_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../home/sort_provider.dart';
 import '../home/view_provider.dart';
+import '../home/filter_provider.dart';
 import 'package:drift/drift.dart' as drift;
 
 class BookListView extends ConsumerWidget {
@@ -34,11 +35,18 @@ class BookListView extends ConsumerWidget {
     // Let's query safely.
 
     final sortOption = ref.watch(sortProvider);
+    final filters = ref.watch(filterProvider);
 
     return StreamBuilder<List<Book>>(
       stream:
           (database.select(database.books)
-                ..where((tbl) => tbl.shelf.equals(dbStatus))
+                ..where((tbl) {
+                  final statusFilter = tbl.shelf.equals(dbStatus);
+                  if (filters.contains('Favoris')) {
+                    return statusFilter & tbl.isFavorite.equals(true);
+                  }
+                  return statusFilter;
+                })
                 ..orderBy([
                   (t) {
                     switch (sortOption) {

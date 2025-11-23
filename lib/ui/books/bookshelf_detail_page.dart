@@ -33,9 +33,17 @@ class BookDetailsPage extends ConsumerWidget {
             title: Text(book.title),
             actions: [
               IconButton(
-                icon: const Icon(Icons.favorite_border),
+                icon: Icon(
+                  book.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: book.isFavorite ? Colors.red : null,
+                ),
                 onPressed: () {
-                  // TODO: Implement favorites
+                  final database = ref.read(databaseProvider);
+                  (database.update(
+                    database.books,
+                  )..where((tbl) => tbl.id.equals(book.id))).write(
+                    BooksCompanion(isFavorite: drift.Value(!book.isFavorite)),
+                  );
                 },
               ),
               PopupMenuButton(

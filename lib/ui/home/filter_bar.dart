@@ -1,18 +1,30 @@
 import 'package:flutter/material.dart';
 
-class FilterBar extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'filter_provider.dart';
+
+class FilterBar extends ConsumerStatefulWidget {
   const FilterBar({super.key});
 
   @override
-  State<FilterBar> createState() => _FilterBarState();
+  ConsumerState<FilterBar> createState() => _FilterBarState();
 }
 
-class _FilterBarState extends State<FilterBar> {
-  final List<String> _filters = ['BD', '2025', 'Roman', 'Label', '2024', 'Sci-Fi'];
-  final Set<String> _selectedFilters = {};
+class _FilterBarState extends ConsumerState<FilterBar> {
+  final List<String> _filters = [
+    'Favoris',
+    'BD',
+    '2025',
+    'Roman',
+    'Label',
+    '2024',
+    'Sci-Fi',
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final selectedFilters = ref.watch(filterProvider);
+
     return SizedBox(
       height: 50,
       child: ListView.separated(
@@ -22,18 +34,12 @@ class _FilterBarState extends State<FilterBar> {
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final filter = _filters[index];
-          final isSelected = _selectedFilters.contains(filter);
+          final isSelected = selectedFilters.contains(filter);
           return FilterChip(
             label: Text(filter),
             selected: isSelected,
             onSelected: (selected) {
-              setState(() {
-                if (selected) {
-                  _selectedFilters.add(filter);
-                } else {
-                  _selectedFilters.remove(filter);
-                }
-              });
+              ref.read(filterProvider.notifier).toggleFilter(filter);
             },
           );
         },
