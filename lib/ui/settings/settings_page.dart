@@ -5,6 +5,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../data/database.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -129,6 +130,116 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
+  Future<void> _exportCsv() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final db = ref.read(databaseProvider);
+      final books = await db.getAllBooks();
+
+      if (books.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucun livre à exporter.')),
+          );
+        }
+        return;
+      }
+
+      final headers = [
+        'title',
+        'author_text',
+        'remote_id',
+        'openlibrary_key',
+        'finna_key',
+        'inventaire_id',
+        'librarything_key',
+        'goodreads_key',
+        'bnf_id',
+        'viaf',
+        'wikidata',
+        'asin',
+        'aasin',
+        'isfdb',
+        'isbn_10',
+        'isbn_13',
+        'oclc_number',
+        'start_date',
+        'finish_date',
+        'stopped_date',
+        'rating',
+        'review_name',
+        'review_cw',
+        'review_content',
+        'review_published',
+        'shelf',
+        'shelf_name',
+        'shelf_date',
+      ];
+
+      final rows = <List<dynamic>>[headers];
+
+      for (final book in books) {
+        rows.add([
+          book.title,
+          book.authorText,
+          book.remoteId,
+          book.openlibraryKey,
+          book.finnaKey,
+          book.inventaireId,
+          book.librarythingKey,
+          book.goodreadsKey,
+          book.bnfId,
+          book.viaf,
+          book.wikidata,
+          book.asin,
+          book.aasin,
+          book.isfdb,
+          book.isbn10,
+          book.isbn13,
+          book.oclcNumber,
+          book.startDate?.toIso8601String(),
+          book.finishDate?.toIso8601String(),
+          book.stoppedDate?.toIso8601String(),
+          book.rating,
+          book.reviewName,
+          book.reviewCw,
+          book.reviewContent,
+          book.reviewPublished?.toIso8601String(),
+          book.shelf,
+          book.shelfName,
+          book.shelfDate?.toIso8601String(),
+        ]);
+      }
+
+      final csvData = const ListToCsvConverter().convert(rows);
+
+      // Save to a temporary file
+      final directory = await Directory.systemTemp.createTemp();
+      final file = File('${directory.path}/ilwyrm_export.csv');
+      await file.writeAsString(csvData);
+
+      // Share the file
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'Export de ma bibliothèque Ilwyrm');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'exportation: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   DateTime? _parseDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return null;
     try {
@@ -159,6 +270,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     'Importez vos livres depuis un export BookWyrm',
                   ),
                   onTap: _pickAndImportCsv,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.download),
+                  title: const Text('Exporter un fichier CSV'),
+                  subtitle: const Text(
+                    'Exportez vos livres au format CSV (compatible BookWyrm)',
+                  ),
+                  onTap: _exportCsv,
                 ),
               ],
             ),

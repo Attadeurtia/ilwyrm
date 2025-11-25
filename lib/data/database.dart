@@ -86,6 +86,8 @@ class AppDatabase extends _$AppDatabase {
         ))
         .get();
   }
+
+  Future<List<Book>> getAllBooks() => select(books).get();
 }
 
 LazyDatabase _openConnection() {

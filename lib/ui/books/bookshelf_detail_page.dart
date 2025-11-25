@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../data/database.dart';
 import '../add_book/edit_book_page.dart';
+import '../add_book/search_book_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class BookDetailsPage extends ConsumerWidget {
@@ -148,33 +149,53 @@ class BookDetailsPage extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Author Chip
-                          InkWell(
-                            onTap: () {
-                              // TODO: Implement navigation or action to show all books by this author
-                              // Example: Navigator.push(context, MaterialPageRoute(builder: (context) => AuthorBooksPage(author: book.authorText)));
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                book.authorText ?? 'Auteur inconnu',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                          // Author Chips
+                          if (book.authorText != null)
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: book.authorText!
+                                  .split(',')
+                                  .map((author) => author.trim())
+                                  .where((author) => author.isNotEmpty)
+                                  .map((author) {
+                                    return ActionChip(
+                                      label: Text(
+                                        author,
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                      side: BorderSide.none,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                SearchBookPage(
+                                                  initialQuery: author,
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  })
+                                  .toList(),
+                            )
+                          else
+                            Text(
+                              'Auteur inconnu',
+                              style: Theme.of(context).textTheme.bodyLarge,
                             ),
-                          ),
                           const SizedBox(height: 16),
                           // Pages
                           Row(
