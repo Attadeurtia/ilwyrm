@@ -8,6 +8,7 @@ import '../home/view_provider.dart';
 import '../home/filter_provider.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:animations/animations.dart';
 
 class BookListView extends ConsumerWidget {
   final String status;
@@ -116,59 +117,62 @@ class BookListView extends ConsumerWidget {
                   child: SlideAnimation(
                     verticalOffset: 50.0,
                     child: FadeInAnimation(
-                      child: Card(
-                        margin: const EdgeInsets.symmetric(
-                          vertical: 4,
-                          horizontal: 8,
+                      child: OpenContainer(
+                        closedElevation: 0,
+                        closedColor: Theme.of(context).cardColor,
+                        closedShape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: ListTile(
-                          leading: Hero(
-                            tag: 'book_cover_${book.id}',
-                            child: Container(
-                              width: 50,
-                              height: 75,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(4),
-                                image: DecorationImage(
-                                  image: book.coverId != null
-                                      ? CachedNetworkImageProvider(
-                                          'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
-                                        )
-                                      : book.openlibraryKey != null
-                                      ? CachedNetworkImageProvider(
-                                          'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
-                                        )
-                                      : const AssetImage(
-                                              'assets/placeholder_book.png',
+                        transitionDuration: const Duration(milliseconds: 500),
+                        openBuilder: (context, action) {
+                          return BookDetailsPage(bookId: book.id);
+                        },
+                        closedBuilder: (context, action) {
+                          return Card(
+                            margin: EdgeInsets.zero,
+                            child: ListTile(
+                              leading: Hero(
+                                tag: 'book_cover_${book.id}',
+                                child: Container(
+                                  width: 50,
+                                  height: 75,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    image: DecorationImage(
+                                      image: book.coverId != null
+                                          ? CachedNetworkImageProvider(
+                                              'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
                                             )
-                                            as ImageProvider,
-                                  fit: BoxFit.cover,
-                                  onError: (_, __) {},
+                                          : book.openlibraryKey != null
+                                          ? CachedNetworkImageProvider(
+                                              'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
+                                            )
+                                          : const AssetImage(
+                                                  'assets/placeholder_book.png',
+                                                )
+                                                as ImageProvider,
+                                      fit: BoxFit.cover,
+                                      onError: (_, __) {},
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                          title: Text(
-                            book.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(
-                            book.authorText ?? 'Unknown Author',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    BookDetailsPage(bookId: book.id),
+                              title: Text(
+                                book.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            );
-                          },
-                        ),
+                              subtitle: Text(
+                                book.authorText ?? 'Unknown Author',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -195,72 +199,74 @@ class BookListView extends ConsumerWidget {
                   columnCount: 3,
                   child: ScaleAnimation(
                     child: FadeInAnimation(
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  BookDetailsPage(bookId: book.id),
-                            ),
-                          );
+                      child: OpenContainer(
+                        closedElevation: 0,
+                        closedColor: Colors.transparent,
+                        closedShape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        transitionDuration: const Duration(milliseconds: 500),
+                        openBuilder: (context, action) {
+                          return BookDetailsPage(bookId: book.id);
                         },
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Hero(
-                                tag: 'book_cover_${book.id}',
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    image: DecorationImage(
-                                      image: book.coverId != null
-                                          ? CachedNetworkImageProvider(
-                                              'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
-                                            )
-                                          : book.openlibraryKey != null
-                                          ? CachedNetworkImageProvider(
-                                              'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
-                                            )
-                                          : const AssetImage(
-                                                  'assets/placeholder_book.png',
-                                                )
-                                                as ImageProvider,
-                                      fit: BoxFit.cover,
-                                      onError: (_, __) {},
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.2,
-                                        ),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
+                        closedBuilder: (context, action) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Hero(
+                                  tag: 'book_cover_${book.id}',
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      image: DecorationImage(
+                                        image: book.coverId != null
+                                            ? CachedNetworkImageProvider(
+                                                'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
+                                              )
+                                            : book.openlibraryKey != null
+                                            ? CachedNetworkImageProvider(
+                                                'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
+                                              )
+                                            : const AssetImage(
+                                                    'assets/placeholder_book.png',
+                                                  )
+                                                  as ImageProvider,
+                                        fit: BoxFit.cover,
+                                        onError: (_, __) {},
                                       ),
-                                    ],
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            if (viewOption == ViewOption.gridWithDetails) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                book.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                book.authorText ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
+                              if (viewOption == ViewOption.gridWithDetails) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  book.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  book.authorText ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ),
                   ),
