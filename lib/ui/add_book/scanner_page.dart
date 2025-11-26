@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'batch_add_page.dart';
 import 'search_book_page.dart';
 
 class ScannerPage extends StatefulWidget {
@@ -15,6 +16,7 @@ class _ScannerPageState extends State<ScannerPage> {
     facing: CameraFacing.back,
     torchEnabled: false,
   );
+  final Set<String> _scannedIsbns = {};
 
   @override
   void dispose() {
@@ -22,11 +24,45 @@ class _ScannerPageState extends State<ScannerPage> {
     super.dispose();
   }
 
+  void _onDetect(BarcodeCapture capture) {
+    final List<Barcode> barcodes = capture.barcodes;
+    for (final barcode in barcodes) {
+      if (barcode.rawValue != null) {
+        final isbn = barcode.rawValue!;
+        if (!_scannedIsbns.contains(isbn)) {
+          setState(() {
+            _scannedIsbns.add(isbn);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Livre scanné: $isbn'),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _finishScanning() {
+    _controller.stop();
+    if (_scannedIsbns.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BatchAddPage(isbns: _scannedIsbns.toList()),
+        ),
+      );
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scanner un livre'),
+        title: const Text('Scanner des livres'),
         actions: [
           IconButton(
             icon: const Icon(Icons.flash_on),
@@ -38,38 +74,40 @@ class _ScannerPageState extends State<ScannerPage> {
           ),
         ],
       ),
-      body: MobileScanner(
-        controller: _controller,
-        onDetect: (capture) {
-          final List<Barcode> barcodes = capture.barcodes;
-          for (final barcode in barcodes) {
-            if (barcode.rawValue != null) {
-              debugPrint('Barcode found! ${barcode.rawValue}');
-              // Stop scanning to prevent multiple pushes
-              _controller.stop();
-
-              // Navigate to search page with the ISBN
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      SearchBookPage(initialQuery: barcode.rawValue),
+      body: Stack(
+        children: [
+          MobileScanner(controller: _controller, onDetect: _onDetect),
+          Positioned(
+            bottom: 80,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
                 ),
-              );
-              return; // Only process the first valid barcode
-            }
-          }
-        },
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_scannedIsbns.length} livre(s) scanné(s)',
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const SearchBookPage()),
-          );
-        },
-        label: const Text('Recherche manuelle'),
-        icon: const Icon(Icons.search),
+        onPressed: _finishScanning,
+        label: Text(
+          _scannedIsbns.isEmpty
+              ? 'Annuler'
+              : 'Terminer (${_scannedIsbns.length})',
+        ),
+        icon: Icon(_scannedIsbns.isEmpty ? Icons.close : Icons.check),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
