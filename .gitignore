@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+inventaire_editions.json
+inventaire_response.json
+inventaire_entity.json
