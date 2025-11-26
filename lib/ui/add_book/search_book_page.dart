@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' as drift;
-import '../../data/database.dart';
 import '../../data/open_library_api.dart';
 import 'edit_book_page.dart';
 
-class SearchBookPage extends ConsumerStatefulWidget {
+class SearchBookPage extends StatefulWidget {
   final String? initialQuery;
 
   const SearchBookPage({super.key, this.initialQuery});
 
   @override
-  ConsumerState<SearchBookPage> createState() => _SearchBookPageState();
+  State<SearchBookPage> createState() => _SearchBookPageState();
 }
 
-class _SearchBookPageState extends ConsumerState<SearchBookPage> {
+class _SearchBookPageState extends State<SearchBookPage> {
   final TextEditingController _controller = TextEditingController();
   final OpenLibraryApi _api = OpenLibraryApi();
   List<OpenLibraryBook> _books = [];
@@ -52,35 +49,6 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage> {
       setState(() {
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _quickAddBook(OpenLibraryBook book) async {
-    final database = ref.read(databaseProvider);
-
-    final newBook = BooksCompanion(
-      title: drift.Value(book.title),
-      authorText: drift.Value(book.authorText),
-      pageCount: drift.Value(book.numberOfPages),
-      shelf: const drift.Value('to_read'),
-      shelfName: const drift.Value('À lire'),
-      openlibraryKey: book.key.isNotEmpty
-          ? drift.Value(book.key.split('/').last)
-          : const drift.Value.absent(),
-      isbn13: book.isbns?.isNotEmpty == true
-          ? drift.Value(book.isbns!.first)
-          : const drift.Value.absent(),
-      coverId: drift.Value(book.coverId),
-      dateAdded: drift.Value(DateTime.now()),
-      dateModified: drift.Value(DateTime.now()),
-    );
-
-    await database.into(database.books).insert(newBook);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Livre ajouté à "À lire" !')),
-      );
     }
   }
 
@@ -130,11 +98,6 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage> {
                   title: Text(book.title),
                   subtitle: Text(
                     '${book.authorText} (${book.firstPublishYear ?? "?"})',
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.add),
-                    tooltip: 'Ajouter rapidement',
-                    onPressed: () => _quickAddBook(book),
                   ),
                   onTap: () {
                     Navigator.push(
