@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:file_picker/file_picker.dart';
 import '../../data/database.dart';
-import '../../data/open_library_api.dart';
+import '../../data/book_search_api.dart';
 
 class EditBookPage extends ConsumerStatefulWidget {
-  final OpenLibraryBook? initialBook;
+  final ExternalBook? initialBook;
   final Book? existingBook;
 
   const EditBookPage({super.key, this.initialBook, this.existingBook});
@@ -100,13 +100,23 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           pageCount: drift.Value(pageCount),
           shelf: drift.Value(_status),
           shelfName: drift.Value(_getShelfName(_status)),
-          openlibraryKey: widget.initialBook?.key != null
+          openlibraryKey:
+              widget.initialBook?.key != null &&
+                  widget.initialBook!.source == 'openlibrary'
               ? drift.Value(widget.initialBook!.key.split('/').last)
               : const drift.Value.absent(),
           isbn13: widget.initialBook?.isbns?.isNotEmpty == true
               ? drift.Value(widget.initialBook!.isbns!.first)
               : const drift.Value.absent(),
-          coverId: drift.Value(widget.initialBook?.coverId),
+          // We don't store coverId for non-OpenLibrary books easily unless we change schema,
+          // but we can rely on coverUrl if we had a column for it, or just download it.
+          // For now, we'll skip coverId if not from OpenLibrary or if we can't parse it.
+          // The ExternalBook doesn't expose coverId directly as int, it's part of logic.
+          // But we have coverUrl.
+          // The current database schema has coverId (int) and coverPath (String).
+          // If it's a URL, we might need to download it or store the URL if we add a column.
+          // For now, we'll leave coverId absent if not OpenLibrary.
+          coverId: const drift.Value.absent(),
           coverPath: drift.Value(_localCoverPath),
           dateAdded: drift.Value(DateTime.now()),
           dateModified: drift.Value(DateTime.now()),

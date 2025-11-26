@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'book_search_api.dart';
 
-class OpenLibraryApi {
+class OpenLibraryApi implements BookSearchApi {
   static const String _baseUrl = 'https://openlibrary.org';
 
-  Future<List<OpenLibraryBook>> searchBooks(String query) async {
+  @override
+  Future<List<ExternalBook>> searchBooks(String query) async {
     final url = Uri.parse(
       '$_baseUrl/search.json?q=${Uri.encodeComponent(query)}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median&limit=20',
     );
@@ -14,48 +16,34 @@ class OpenLibraryApi {
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final docs = data['docs'] as List;
-      return docs.map((json) => OpenLibraryBook.fromJson(json)).toList();
+      return docs.map((json) {
+        final authors = (json['author_name'] as List?)
+            ?.map((e) => e.toString())
+            .toList();
+        final coverId = json['cover_i'];
+        final isbns = (json['isbn'] as List?)
+            ?.map((e) => e.toString())
+            .toList();
+
+        return ExternalBook(
+          key: json['key'],
+          title: json['title'],
+          authorText: authors?.join(', ') ?? 'Unknown Author',
+          coverUrl: coverId != null
+              ? 'https://covers.openlibrary.org/b/id/$coverId-M.jpg'
+              : null,
+          firstPublishYear: json['first_publish_year'],
+          isbns: isbns,
+          numberOfPages: json['number_of_pages_median'],
+          source: 'openlibrary',
+        );
+      }).toList();
     } else {
       throw Exception('Failed to load books');
     }
   }
 }
 
-class OpenLibraryBook {
-  final String key;
-  final String title;
-  final List<String>? authors;
-  final int? coverId;
-  final int? firstPublishYear;
-  final List<String>? isbns;
-  final int? numberOfPages;
-
-  OpenLibraryBook({
-    required this.key,
-    required this.title,
-    this.authors,
-    this.coverId,
-    this.firstPublishYear,
-    this.isbns,
-    this.numberOfPages,
-  });
-
-  factory OpenLibraryBook.fromJson(Map<String, dynamic> json) {
-    return OpenLibraryBook(
-      key: json['key'],
-      title: json['title'],
-      authors: (json['author_name'] as List?)
-          ?.map((e) => e.toString())
-          .toList(),
-      coverId: json['cover_i'],
-      firstPublishYear: json['first_publish_year'],
-      isbns: (json['isbn'] as List?)?.map((e) => e.toString()).toList(),
-      numberOfPages: json['number_of_pages_median'],
-    );
-  }
-
-  String get authorText => authors?.join(', ') ?? 'Unknown Author';
-  String? get coverUrl => coverId != null
-      ? 'https://covers.openlibrary.org/b/id/$coverId-M.jpg'
-      : null;
-}
+// Kept for backward compatibility during refactor if needed, but ideally should be removed
+// or aliased if other files still depend on it before full migration.
+// For now, I'm removing it as I will update consumers.

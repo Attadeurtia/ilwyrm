@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'batch_add_page.dart';
-import 'search_book_page.dart';
 
 class ScannerPage extends StatefulWidget {
   const ScannerPage({super.key});

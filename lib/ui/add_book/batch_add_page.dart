@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../data/database.dart';
+import '../../data/book_search_api.dart';
 import '../../data/open_library_api.dart';
 
 class BatchAddPage extends ConsumerStatefulWidget {
@@ -15,7 +16,7 @@ class BatchAddPage extends ConsumerStatefulWidget {
 
 class _BatchAddPageState extends ConsumerState<BatchAddPage> {
   final OpenLibraryApi _api = OpenLibraryApi();
-  final List<OpenLibraryBook> _books = [];
+  final List<ExternalBook> _books = [];
   final Set<String> _failedIsbns = {};
   bool _isLoading = true;
 
@@ -58,13 +59,13 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
         pageCount: drift.Value(book.numberOfPages),
         shelf: const drift.Value('to_read'),
         shelfName: const drift.Value('À lire'),
-        openlibraryKey: book.key.isNotEmpty
+        openlibraryKey: book.key.isNotEmpty && book.source == 'openlibrary'
             ? drift.Value(book.key.split('/').last)
             : const drift.Value.absent(),
         isbn13: book.isbns?.isNotEmpty == true
             ? drift.Value(book.isbns!.first)
             : const drift.Value.absent(),
-        coverId: drift.Value(book.coverId),
+        coverId: const drift.Value.absent(), // See EditBookPage note
         dateAdded: drift.Value(DateTime.now()),
         dateModified: drift.Value(DateTime.now()),
       );
