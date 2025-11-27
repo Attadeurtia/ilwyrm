@@ -107,22 +107,26 @@ class BookDetailsPage extends ConsumerWidget {
                         height: 210,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          image: DecorationImage(
-                            image: book.coverId != null
-                                ? CachedNetworkImageProvider(
-                                    'https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg',
-                                  )
-                                : book.openlibraryKey != null
-                                ? CachedNetworkImageProvider(
-                                    'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
-                                  )
-                                : const AssetImage(
-                                        'assets/placeholder_book.png',
-                                      )
-                                      as ImageProvider,
-                            fit: BoxFit.cover,
-                            onError: (_, __) {},
-                          ),
+                          image:
+                              (book.coverId != null ||
+                                  book.openlibraryKey != null ||
+                                  book.coverUrl != null)
+                              ? DecorationImage(
+                                  image: book.coverUrl != null
+                                      ? CachedNetworkImageProvider(
+                                          book.coverUrl!,
+                                        )
+                                      : book.coverId != null
+                                      ? CachedNetworkImageProvider(
+                                          'https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg',
+                                        )
+                                      : CachedNetworkImageProvider(
+                                          'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
+                                        ),
+                                  fit: BoxFit.cover,
+                                  onError: (_, __) {},
+                                )
+                              : null,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.2),
@@ -132,11 +136,16 @@ class BookDetailsPage extends ConsumerWidget {
                           ],
                         ),
                         child:
-                            book.coverId == null && book.openlibraryKey == null
+                            book.coverId == null &&
+                                book.openlibraryKey == null &&
+                                book.coverUrl == null
                             ? Container(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primaryContainer,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer,
+                                ),
                                 child: const Center(
                                   child: Icon(Icons.book, size: 40),
                                 ),
