@@ -259,6 +259,17 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _coverUrlMeta = const VerificationMeta(
+    'coverUrl',
+  );
+  @override
+  late final GeneratedColumn<String> coverUrl = GeneratedColumn<String>(
+    'cover_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _coverPathMeta = const VerificationMeta(
     'coverPath',
   );
@@ -421,6 +432,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     finishDate,
     stoppedDate,
     coverId,
+    coverUrl,
     coverPath,
     rating,
     reviewName,
@@ -605,6 +617,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
       context.handle(
         _coverIdMeta,
         coverId.isAcceptableOrUnknown(data['cover_id']!, _coverIdMeta),
+      );
+    }
+    if (data.containsKey('cover_url')) {
+      context.handle(
+        _coverUrlMeta,
+        coverUrl.isAcceptableOrUnknown(data['cover_url']!, _coverUrlMeta),
       );
     }
     if (data.containsKey('cover_path')) {
@@ -793,6 +811,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.int,
         data['${effectivePrefix}cover_id'],
       ),
+      coverUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_url'],
+      ),
       coverPath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}cover_path'],
@@ -875,6 +897,7 @@ class Book extends DataClass implements Insertable<Book> {
   final DateTime? finishDate;
   final DateTime? stoppedDate;
   final int? coverId;
+  final String? coverUrl;
   final String? coverPath;
   final int? rating;
   final String? reviewName;
@@ -912,6 +935,7 @@ class Book extends DataClass implements Insertable<Book> {
     this.finishDate,
     this.stoppedDate,
     this.coverId,
+    this.coverUrl,
     this.coverPath,
     this.rating,
     this.reviewName,
@@ -995,6 +1019,9 @@ class Book extends DataClass implements Insertable<Book> {
     }
     if (!nullToAbsent || coverId != null) {
       map['cover_id'] = Variable<int>(coverId);
+    }
+    if (!nullToAbsent || coverUrl != null) {
+      map['cover_url'] = Variable<String>(coverUrl);
     }
     if (!nullToAbsent || coverPath != null) {
       map['cover_path'] = Variable<String>(coverPath);
@@ -1093,6 +1120,9 @@ class Book extends DataClass implements Insertable<Book> {
       coverId: coverId == null && nullToAbsent
           ? const Value.absent()
           : Value(coverId),
+      coverUrl: coverUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverUrl),
       coverPath: coverPath == null && nullToAbsent
           ? const Value.absent()
           : Value(coverPath),
@@ -1154,6 +1184,7 @@ class Book extends DataClass implements Insertable<Book> {
       finishDate: serializer.fromJson<DateTime?>(json['finishDate']),
       stoppedDate: serializer.fromJson<DateTime?>(json['stoppedDate']),
       coverId: serializer.fromJson<int?>(json['coverId']),
+      coverUrl: serializer.fromJson<String?>(json['coverUrl']),
       coverPath: serializer.fromJson<String?>(json['coverPath']),
       rating: serializer.fromJson<int?>(json['rating']),
       reviewName: serializer.fromJson<String?>(json['reviewName']),
@@ -1196,6 +1227,7 @@ class Book extends DataClass implements Insertable<Book> {
       'finishDate': serializer.toJson<DateTime?>(finishDate),
       'stoppedDate': serializer.toJson<DateTime?>(stoppedDate),
       'coverId': serializer.toJson<int?>(coverId),
+      'coverUrl': serializer.toJson<String?>(coverUrl),
       'coverPath': serializer.toJson<String?>(coverPath),
       'rating': serializer.toJson<int?>(rating),
       'reviewName': serializer.toJson<String?>(reviewName),
@@ -1236,6 +1268,7 @@ class Book extends DataClass implements Insertable<Book> {
     Value<DateTime?> finishDate = const Value.absent(),
     Value<DateTime?> stoppedDate = const Value.absent(),
     Value<int?> coverId = const Value.absent(),
+    Value<String?> coverUrl = const Value.absent(),
     Value<String?> coverPath = const Value.absent(),
     Value<int?> rating = const Value.absent(),
     Value<String?> reviewName = const Value.absent(),
@@ -1277,6 +1310,7 @@ class Book extends DataClass implements Insertable<Book> {
     finishDate: finishDate.present ? finishDate.value : this.finishDate,
     stoppedDate: stoppedDate.present ? stoppedDate.value : this.stoppedDate,
     coverId: coverId.present ? coverId.value : this.coverId,
+    coverUrl: coverUrl.present ? coverUrl.value : this.coverUrl,
     coverPath: coverPath.present ? coverPath.value : this.coverPath,
     rating: rating.present ? rating.value : this.rating,
     reviewName: reviewName.present ? reviewName.value : this.reviewName,
@@ -1338,6 +1372,7 @@ class Book extends DataClass implements Insertable<Book> {
           ? data.stoppedDate.value
           : this.stoppedDate,
       coverId: data.coverId.present ? data.coverId.value : this.coverId,
+      coverUrl: data.coverUrl.present ? data.coverUrl.value : this.coverUrl,
       coverPath: data.coverPath.present ? data.coverPath.value : this.coverPath,
       rating: data.rating.present ? data.rating.value : this.rating,
       reviewName: data.reviewName.present
@@ -1390,6 +1425,7 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
           ..write('coverId: $coverId, ')
+          ..write('coverUrl: $coverUrl, ')
           ..write('coverPath: $coverPath, ')
           ..write('rating: $rating, ')
           ..write('reviewName: $reviewName, ')
@@ -1432,6 +1468,7 @@ class Book extends DataClass implements Insertable<Book> {
     finishDate,
     stoppedDate,
     coverId,
+    coverUrl,
     coverPath,
     rating,
     reviewName,
@@ -1473,6 +1510,7 @@ class Book extends DataClass implements Insertable<Book> {
           other.finishDate == this.finishDate &&
           other.stoppedDate == this.stoppedDate &&
           other.coverId == this.coverId &&
+          other.coverUrl == this.coverUrl &&
           other.coverPath == this.coverPath &&
           other.rating == this.rating &&
           other.reviewName == this.reviewName &&
@@ -1512,6 +1550,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<DateTime?> finishDate;
   final Value<DateTime?> stoppedDate;
   final Value<int?> coverId;
+  final Value<String?> coverUrl;
   final Value<String?> coverPath;
   final Value<int?> rating;
   final Value<String?> reviewName;
@@ -1549,6 +1588,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
     this.coverId = const Value.absent(),
+    this.coverUrl = const Value.absent(),
     this.coverPath = const Value.absent(),
     this.rating = const Value.absent(),
     this.reviewName = const Value.absent(),
@@ -1587,6 +1627,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
     this.coverId = const Value.absent(),
+    this.coverUrl = const Value.absent(),
     this.coverPath = const Value.absent(),
     this.rating = const Value.absent(),
     this.reviewName = const Value.absent(),
@@ -1625,6 +1666,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<DateTime>? finishDate,
     Expression<DateTime>? stoppedDate,
     Expression<int>? coverId,
+    Expression<String>? coverUrl,
     Expression<String>? coverPath,
     Expression<int>? rating,
     Expression<String>? reviewName,
@@ -1663,6 +1705,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (finishDate != null) 'finish_date': finishDate,
       if (stoppedDate != null) 'stopped_date': stoppedDate,
       if (coverId != null) 'cover_id': coverId,
+      if (coverUrl != null) 'cover_url': coverUrl,
       if (coverPath != null) 'cover_path': coverPath,
       if (rating != null) 'rating': rating,
       if (reviewName != null) 'review_name': reviewName,
@@ -1703,6 +1746,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<DateTime?>? finishDate,
     Value<DateTime?>? stoppedDate,
     Value<int?>? coverId,
+    Value<String?>? coverUrl,
     Value<String?>? coverPath,
     Value<int?>? rating,
     Value<String?>? reviewName,
@@ -1741,6 +1785,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       finishDate: finishDate ?? this.finishDate,
       stoppedDate: stoppedDate ?? this.stoppedDate,
       coverId: coverId ?? this.coverId,
+      coverUrl: coverUrl ?? this.coverUrl,
       coverPath: coverPath ?? this.coverPath,
       rating: rating ?? this.rating,
       reviewName: reviewName ?? this.reviewName,
@@ -1831,6 +1876,9 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (coverId.present) {
       map['cover_id'] = Variable<int>(coverId.value);
     }
+    if (coverUrl.present) {
+      map['cover_url'] = Variable<String>(coverUrl.value);
+    }
     if (coverPath.present) {
       map['cover_path'] = Variable<String>(coverPath.value);
     }
@@ -1897,6 +1945,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
           ..write('coverId: $coverId, ')
+          ..write('coverUrl: $coverUrl, ')
           ..write('coverPath: $coverPath, ')
           ..write('rating: $rating, ')
           ..write('reviewName: $reviewName, ')
@@ -1914,15 +1963,494 @@ class BooksCompanion extends UpdateCompanion<Book> {
   }
 }
 
+class $TagsTable extends Tags with TableInfo<$TagsTable, Tag> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<int> color = GeneratedColumn<int>(
+    'color',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, color];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tags';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Tag> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Tag map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Tag(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color'],
+      ),
+    );
+  }
+
+  @override
+  $TagsTable createAlias(String alias) {
+    return $TagsTable(attachedDatabase, alias);
+  }
+}
+
+class Tag extends DataClass implements Insertable<Tag> {
+  final int id;
+  final String name;
+  final int? color;
+  const Tag({required this.id, required this.name, this.color});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || color != null) {
+      map['color'] = Variable<int>(color);
+    }
+    return map;
+  }
+
+  TagsCompanion toCompanion(bool nullToAbsent) {
+    return TagsCompanion(
+      id: Value(id),
+      name: Value(name),
+      color: color == null && nullToAbsent
+          ? const Value.absent()
+          : Value(color),
+    );
+  }
+
+  factory Tag.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Tag(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      color: serializer.fromJson<int?>(json['color']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'color': serializer.toJson<int?>(color),
+    };
+  }
+
+  Tag copyWith({
+    int? id,
+    String? name,
+    Value<int?> color = const Value.absent(),
+  }) => Tag(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    color: color.present ? color.value : this.color,
+  );
+  Tag copyWithCompanion(TagsCompanion data) {
+    return Tag(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      color: data.color.present ? data.color.value : this.color,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Tag(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('color: $color')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, color);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Tag &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.color == this.color);
+}
+
+class TagsCompanion extends UpdateCompanion<Tag> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<int?> color;
+  const TagsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.color = const Value.absent(),
+  });
+  TagsCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.color = const Value.absent(),
+  }) : name = Value(name);
+  static Insertable<Tag> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<int>? color,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (color != null) 'color': color,
+    });
+  }
+
+  TagsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<int?>? color,
+  }) {
+    return TagsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      color: color ?? this.color,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<int>(color.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TagsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('color: $color')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BookTagsTable extends BookTags with TableInfo<$BookTagsTable, BookTag> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BookTagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<int> bookId = GeneratedColumn<int>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _tagIdMeta = const VerificationMeta('tagId');
+  @override
+  late final GeneratedColumn<int> tagId = GeneratedColumn<int>(
+    'tag_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tags (id) ON DELETE CASCADE',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [bookId, tagId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'book_tags';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BookTag> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('tag_id')) {
+      context.handle(
+        _tagIdMeta,
+        tagId.isAcceptableOrUnknown(data['tag_id']!, _tagIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tagIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {bookId, tagId};
+  @override
+  BookTag map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BookTag(
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}book_id'],
+      )!,
+      tagId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tag_id'],
+      )!,
+    );
+  }
+
+  @override
+  $BookTagsTable createAlias(String alias) {
+    return $BookTagsTable(attachedDatabase, alias);
+  }
+}
+
+class BookTag extends DataClass implements Insertable<BookTag> {
+  final int bookId;
+  final int tagId;
+  const BookTag({required this.bookId, required this.tagId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['book_id'] = Variable<int>(bookId);
+    map['tag_id'] = Variable<int>(tagId);
+    return map;
+  }
+
+  BookTagsCompanion toCompanion(bool nullToAbsent) {
+    return BookTagsCompanion(bookId: Value(bookId), tagId: Value(tagId));
+  }
+
+  factory BookTag.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BookTag(
+      bookId: serializer.fromJson<int>(json['bookId']),
+      tagId: serializer.fromJson<int>(json['tagId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'bookId': serializer.toJson<int>(bookId),
+      'tagId': serializer.toJson<int>(tagId),
+    };
+  }
+
+  BookTag copyWith({int? bookId, int? tagId}) =>
+      BookTag(bookId: bookId ?? this.bookId, tagId: tagId ?? this.tagId);
+  BookTag copyWithCompanion(BookTagsCompanion data) {
+    return BookTag(
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      tagId: data.tagId.present ? data.tagId.value : this.tagId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BookTag(')
+          ..write('bookId: $bookId, ')
+          ..write('tagId: $tagId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(bookId, tagId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BookTag &&
+          other.bookId == this.bookId &&
+          other.tagId == this.tagId);
+}
+
+class BookTagsCompanion extends UpdateCompanion<BookTag> {
+  final Value<int> bookId;
+  final Value<int> tagId;
+  final Value<int> rowid;
+  const BookTagsCompanion({
+    this.bookId = const Value.absent(),
+    this.tagId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BookTagsCompanion.insert({
+    required int bookId,
+    required int tagId,
+    this.rowid = const Value.absent(),
+  }) : bookId = Value(bookId),
+       tagId = Value(tagId);
+  static Insertable<BookTag> custom({
+    Expression<int>? bookId,
+    Expression<int>? tagId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (bookId != null) 'book_id': bookId,
+      if (tagId != null) 'tag_id': tagId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BookTagsCompanion copyWith({
+    Value<int>? bookId,
+    Value<int>? tagId,
+    Value<int>? rowid,
+  }) {
+    return BookTagsCompanion(
+      bookId: bookId ?? this.bookId,
+      tagId: tagId ?? this.tagId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (bookId.present) {
+      map['book_id'] = Variable<int>(bookId.value);
+    }
+    if (tagId.present) {
+      map['tag_id'] = Variable<int>(tagId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BookTagsCompanion(')
+          ..write('bookId: $bookId, ')
+          ..write('tagId: $tagId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $BooksTable books = $BooksTable(this);
+  late final $TagsTable tags = $TagsTable(this);
+  late final $BookTagsTable bookTags = $BookTagsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [books];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [books, tags, bookTags];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('book_tags', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'tags',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('book_tags', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$BooksTableCreateCompanionBuilder =
@@ -1951,6 +2479,7 @@ typedef $$BooksTableCreateCompanionBuilder =
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
       Value<int?> coverId,
+      Value<String?> coverUrl,
       Value<String?> coverPath,
       Value<int?> rating,
       Value<String?> reviewName,
@@ -1990,6 +2519,7 @@ typedef $$BooksTableUpdateCompanionBuilder =
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
       Value<int?> coverId,
+      Value<String?> coverUrl,
       Value<String?> coverPath,
       Value<int?> rating,
       Value<String?> reviewName,
@@ -2003,6 +2533,30 @@ typedef $$BooksTableUpdateCompanionBuilder =
       Value<DateTime> dateAdded,
       Value<DateTime> dateModified,
     });
+
+final class $$BooksTableReferences
+    extends BaseReferences<_$AppDatabase, $BooksTable, Book> {
+  $$BooksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$BookTagsTable, List<BookTag>> _bookTagsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.bookTags,
+    aliasName: $_aliasNameGenerator(db.books.id, db.bookTags.bookId),
+  );
+
+  $$BookTagsTableProcessedTableManager get bookTagsRefs {
+    final manager = $$BookTagsTableTableManager(
+      $_db,
+      $_db.bookTags,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_bookTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
   $$BooksTableFilterComposer({
@@ -2132,6 +2686,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get coverUrl => $composableBuilder(
+    column: $table.coverUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get coverPath => $composableBuilder(
     column: $table.coverPath,
     builder: (column) => ColumnFilters(column),
@@ -2191,6 +2750,31 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
     column: $table.dateModified,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> bookTagsRefs(
+    Expression<bool> Function($$BookTagsTableFilterComposer f) f,
+  ) {
+    final $$BookTagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookTags,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookTagsTableFilterComposer(
+            $db: $db,
+            $table: $db.bookTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BooksTableOrderingComposer
@@ -2319,6 +2903,11 @@ class $$BooksTableOrderingComposer
 
   ColumnOrderings<int> get coverId => $composableBuilder(
     column: $table.coverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coverUrl => $composableBuilder(
+    column: $table.coverUrl,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -2482,6 +3071,9 @@ class $$BooksTableAnnotationComposer
   GeneratedColumn<int> get coverId =>
       $composableBuilder(column: $table.coverId, builder: (column) => column);
 
+  GeneratedColumn<String> get coverUrl =>
+      $composableBuilder(column: $table.coverUrl, builder: (column) => column);
+
   GeneratedColumn<String> get coverPath =>
       $composableBuilder(column: $table.coverPath, builder: (column) => column);
 
@@ -2527,6 +3119,31 @@ class $$BooksTableAnnotationComposer
     column: $table.dateModified,
     builder: (column) => column,
   );
+
+  Expression<T> bookTagsRefs<T extends Object>(
+    Expression<T> Function($$BookTagsTableAnnotationComposer a) f,
+  ) {
+    final $$BookTagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookTags,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookTagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bookTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BooksTableTableManager
@@ -2540,9 +3157,9 @@ class $$BooksTableTableManager
           $$BooksTableAnnotationComposer,
           $$BooksTableCreateCompanionBuilder,
           $$BooksTableUpdateCompanionBuilder,
-          (Book, BaseReferences<_$AppDatabase, $BooksTable, Book>),
+          (Book, $$BooksTableReferences),
           Book,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool bookTagsRefs})
         > {
   $$BooksTableTableManager(_$AppDatabase db, $BooksTable table)
     : super(
@@ -2581,6 +3198,7 @@ class $$BooksTableTableManager
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
                 Value<int?> coverId = const Value.absent(),
+                Value<String?> coverUrl = const Value.absent(),
                 Value<String?> coverPath = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 Value<String?> reviewName = const Value.absent(),
@@ -2618,6 +3236,7 @@ class $$BooksTableTableManager
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
                 coverId: coverId,
+                coverUrl: coverUrl,
                 coverPath: coverPath,
                 rating: rating,
                 reviewName: reviewName,
@@ -2657,6 +3276,7 @@ class $$BooksTableTableManager
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
                 Value<int?> coverId = const Value.absent(),
+                Value<String?> coverUrl = const Value.absent(),
                 Value<String?> coverPath = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 Value<String?> reviewName = const Value.absent(),
@@ -2694,6 +3314,7 @@ class $$BooksTableTableManager
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
                 coverId: coverId,
+                coverUrl: coverUrl,
                 coverPath: coverPath,
                 rating: rating,
                 reviewName: reviewName,
@@ -2708,9 +3329,33 @@ class $$BooksTableTableManager
                 dateModified: dateModified,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) =>
+                    (e.readTable(table), $$BooksTableReferences(db, table, e)),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({bookTagsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (bookTagsRefs) db.bookTags],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (bookTagsRefs)
+                    await $_getPrefetchedData<Book, $BooksTable, BookTag>(
+                      currentTable: table,
+                      referencedTable: $$BooksTableReferences
+                          ._bookTagsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$BooksTableReferences(db, table, p0).bookTagsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.bookId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -2725,9 +3370,592 @@ typedef $$BooksTableProcessedTableManager =
       $$BooksTableAnnotationComposer,
       $$BooksTableCreateCompanionBuilder,
       $$BooksTableUpdateCompanionBuilder,
-      (Book, BaseReferences<_$AppDatabase, $BooksTable, Book>),
+      (Book, $$BooksTableReferences),
       Book,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool bookTagsRefs})
+    >;
+typedef $$TagsTableCreateCompanionBuilder =
+    TagsCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<int?> color,
+    });
+typedef $$TagsTableUpdateCompanionBuilder =
+    TagsCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<int?> color,
+    });
+
+final class $$TagsTableReferences
+    extends BaseReferences<_$AppDatabase, $TagsTable, Tag> {
+  $$TagsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$BookTagsTable, List<BookTag>> _bookTagsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.bookTags,
+    aliasName: $_aliasNameGenerator(db.tags.id, db.bookTags.tagId),
+  );
+
+  $$BookTagsTableProcessedTableManager get bookTagsRefs {
+    final manager = $$BookTagsTableTableManager(
+      $_db,
+      $_db.bookTags,
+    ).filter((f) => f.tagId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_bookTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$TagsTableFilterComposer extends Composer<_$AppDatabase, $TagsTable> {
+  $$TagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> bookTagsRefs(
+    Expression<bool> Function($$BookTagsTableFilterComposer f) f,
+  ) {
+    final $$BookTagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookTags,
+      getReferencedColumn: (t) => t.tagId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookTagsTableFilterComposer(
+            $db: $db,
+            $table: $db.bookTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$TagsTableOrderingComposer extends Composer<_$AppDatabase, $TagsTable> {
+  $$TagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TagsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TagsTable> {
+  $$TagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
+
+  Expression<T> bookTagsRefs<T extends Object>(
+    Expression<T> Function($$BookTagsTableAnnotationComposer a) f,
+  ) {
+    final $$BookTagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookTags,
+      getReferencedColumn: (t) => t.tagId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookTagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bookTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$TagsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TagsTable,
+          Tag,
+          $$TagsTableFilterComposer,
+          $$TagsTableOrderingComposer,
+          $$TagsTableAnnotationComposer,
+          $$TagsTableCreateCompanionBuilder,
+          $$TagsTableUpdateCompanionBuilder,
+          (Tag, $$TagsTableReferences),
+          Tag,
+          PrefetchHooks Function({bool bookTagsRefs})
+        > {
+  $$TagsTableTableManager(_$AppDatabase db, $TagsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TagsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int?> color = const Value.absent(),
+              }) => TagsCompanion(id: id, name: name, color: color),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<int?> color = const Value.absent(),
+              }) => TagsCompanion.insert(id: id, name: name, color: color),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) =>
+                    (e.readTable(table), $$TagsTableReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bookTagsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (bookTagsRefs) db.bookTags],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (bookTagsRefs)
+                    await $_getPrefetchedData<Tag, $TagsTable, BookTag>(
+                      currentTable: table,
+                      referencedTable: $$TagsTableReferences._bookTagsRefsTable(
+                        db,
+                      ),
+                      managerFromTypedResult: (p0) =>
+                          $$TagsTableReferences(db, table, p0).bookTagsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.tagId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TagsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TagsTable,
+      Tag,
+      $$TagsTableFilterComposer,
+      $$TagsTableOrderingComposer,
+      $$TagsTableAnnotationComposer,
+      $$TagsTableCreateCompanionBuilder,
+      $$TagsTableUpdateCompanionBuilder,
+      (Tag, $$TagsTableReferences),
+      Tag,
+      PrefetchHooks Function({bool bookTagsRefs})
+    >;
+typedef $$BookTagsTableCreateCompanionBuilder =
+    BookTagsCompanion Function({
+      required int bookId,
+      required int tagId,
+      Value<int> rowid,
+    });
+typedef $$BookTagsTableUpdateCompanionBuilder =
+    BookTagsCompanion Function({
+      Value<int> bookId,
+      Value<int> tagId,
+      Value<int> rowid,
+    });
+
+final class $$BookTagsTableReferences
+    extends BaseReferences<_$AppDatabase, $BookTagsTable, BookTag> {
+  $$BookTagsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BooksTable _bookIdTable(_$AppDatabase db) => db.books.createAlias(
+    $_aliasNameGenerator(db.bookTags.bookId, db.books.id),
+  );
+
+  $$BooksTableProcessedTableManager get bookId {
+    final $_column = $_itemColumn<int>('book_id')!;
+
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $TagsTable _tagIdTable(_$AppDatabase db) =>
+      db.tags.createAlias($_aliasNameGenerator(db.bookTags.tagId, db.tags.id));
+
+  $$TagsTableProcessedTableManager get tagId {
+    final $_column = $_itemColumn<int>('tag_id')!;
+
+    final manager = $$TagsTableTableManager(
+      $_db,
+      $_db.tags,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_tagIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BookTagsTableFilterComposer
+    extends Composer<_$AppDatabase, $BookTagsTable> {
+  $$BookTagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TagsTableFilterComposer get tagId {
+    final $$TagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tagId,
+      referencedTable: $db.tags,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagsTableFilterComposer(
+            $db: $db,
+            $table: $db.tags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookTagsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BookTagsTable> {
+  $$BookTagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TagsTableOrderingComposer get tagId {
+    final $$TagsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tagId,
+      referencedTable: $db.tags,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagsTableOrderingComposer(
+            $db: $db,
+            $table: $db.tags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookTagsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BookTagsTable> {
+  $$BookTagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TagsTableAnnotationComposer get tagId {
+    final $$TagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tagId,
+      referencedTable: $db.tags,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BookTagsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BookTagsTable,
+          BookTag,
+          $$BookTagsTableFilterComposer,
+          $$BookTagsTableOrderingComposer,
+          $$BookTagsTableAnnotationComposer,
+          $$BookTagsTableCreateCompanionBuilder,
+          $$BookTagsTableUpdateCompanionBuilder,
+          (BookTag, $$BookTagsTableReferences),
+          BookTag,
+          PrefetchHooks Function({bool bookId, bool tagId})
+        > {
+  $$BookTagsTableTableManager(_$AppDatabase db, $BookTagsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BookTagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BookTagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BookTagsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> bookId = const Value.absent(),
+                Value<int> tagId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) =>
+                  BookTagsCompanion(bookId: bookId, tagId: tagId, rowid: rowid),
+          createCompanionCallback:
+              ({
+                required int bookId,
+                required int tagId,
+                Value<int> rowid = const Value.absent(),
+              }) => BookTagsCompanion.insert(
+                bookId: bookId,
+                tagId: tagId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$BookTagsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bookId = false, tagId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (bookId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.bookId,
+                                referencedTable: $$BookTagsTableReferences
+                                    ._bookIdTable(db),
+                                referencedColumn: $$BookTagsTableReferences
+                                    ._bookIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (tagId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.tagId,
+                                referencedTable: $$BookTagsTableReferences
+                                    ._tagIdTable(db),
+                                referencedColumn: $$BookTagsTableReferences
+                                    ._tagIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$BookTagsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BookTagsTable,
+      BookTag,
+      $$BookTagsTableFilterComposer,
+      $$BookTagsTableOrderingComposer,
+      $$BookTagsTableAnnotationComposer,
+      $$BookTagsTableCreateCompanionBuilder,
+      $$BookTagsTableUpdateCompanionBuilder,
+      (BookTag, $$BookTagsTableReferences),
+      BookTag,
+      PrefetchHooks Function({bool bookId, bool tagId})
     >;
 
 class $AppDatabaseManager {
@@ -2735,4 +3963,7 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$BooksTableTableManager get books =>
       $$BooksTableTableManager(_db, _db.books);
+  $$TagsTableTableManager get tags => $$TagsTableTableManager(_db, _db.tags);
+  $$BookTagsTableTableManager get bookTags =>
+      $$BookTagsTableTableManager(_db, _db.bookTags);
 }

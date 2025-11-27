@@ -10,6 +10,10 @@ import 'view_provider.dart';
 import '../settings/settings_page.dart';
 import 'local_search_delegate.dart';
 
+import 'tag_filter_provider.dart';
+
+import '../../data/tables/tags.dart';
+
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -197,13 +201,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildBookList(int index) {
+    final selectedTagId = ref.watch(selectedTagProvider);
     switch (index) {
       case 0:
-        return const BookListView(status: 'to_read');
+        return BookListView(status: 'to_read', tagId: selectedTagId);
       case 1:
-        return const BookListView(status: 'reading');
+        return BookListView(status: 'reading', tagId: selectedTagId);
       case 2:
-        return const BookListView(status: 'read');
+        return BookListView(status: 'read', tagId: selectedTagId);
       default:
         return const SizedBox();
     }

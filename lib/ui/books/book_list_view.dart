@@ -11,35 +11,58 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class BookListView extends ConsumerWidget {
   final String status;
+  final int? tagId;
 
-  const BookListView({super.key, required this.status});
+  const BookListView({super.key, required this.status, this.tagId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final database = ref.watch(databaseProvider);
 
     // Map tab status to database shelf values
-    // "À lire" -> "to_read" (or "to-read")
-    // "En cours" -> "reading"
-    // "Lus" -> "read"
     String dbStatus;
     if (status == 'to_read') {
-      dbStatus = 'to_read'; // Or 'to-read' depending on what we used in seed
+      dbStatus = 'to_read';
     } else if (status == 'reading') {
       dbStatus = 'reading';
     } else {
       dbStatus = 'read';
     }
 
-    // Handle the 'to-read' vs 'to_read' inconsistency if any
-    // In seed we used 'to_read' for Dune and 'read'/'reading' for others.
-    // Let's query safely.
-
     final sortOption = ref.watch(sortProvider);
     final filters = ref.watch(filterProvider);
 
-    return StreamBuilder<List<Book>>(
-      stream:
+    Stream<List<Book>> bookStream;
+
+    if (tagId != null) {
+      // If filtering by tag, we first get books by tag, then filter by status/sort in memory
+      // (Drift doesn't easily support complex joins + where + sort in a single fluent stream without custom SQL)
+      // For simplicity and performance on small datasets, this is fine.
+      bookStream = database.getBooksByTag(tagId!).asStream().map((books) {
+        var filtered = books.where((b) {
+          final statusFilter = b.shelf == dbStatus;
+          if (filters.contains('Favoris')) {
+            return statusFilter && b.isFavorite;
+          }
+          return statusFilter;
+        }).toList();
+
+        // Sort
+        filtered.sort((a, b) {
+          switch (sortOption) {
+            case SortOption.title:
+              return a.title.compareTo(b.title);
+            case SortOption.author:
+              return (a.authorText ?? '').compareTo(b.authorText ?? '');
+            case SortOption.dateAdded:
+              return b.dateAdded.compareTo(a.dateAdded);
+          }
+        });
+        return filtered;
+      });
+    } else {
+      // Standard stream
+      bookStream =
           (database.select(database.books)
                 ..where((tbl) {
                   final statusFilter = tbl.shelf.equals(dbStatus);
@@ -69,7 +92,11 @@ class BookListView extends ConsumerWidget {
                     }
                   },
                 ]))
-              .watch(),
+              .watch();
+    }
+
+    return StreamBuilder<List<Book>>(
+      stream: bookStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));

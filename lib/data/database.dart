@@ -7,15 +7,17 @@ import 'package:path/path.dart' as p;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'tables/books.dart';
+import 'tables/tags.dart';
+import 'tables/book_tags.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Books])
+@DriftDatabase(tables: [Books, Tags, BookTags])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration {
@@ -72,6 +74,15 @@ class AppDatabase extends _$AppDatabase {
             print('Error adding coverPath column: $e');
           }
         }
+
+        if (from < 9) {
+          try {
+            await m.createTable(tags);
+            await m.createTable(bookTags);
+          } catch (e) {
+            print('Error creating tags tables: $e');
+          }
+        }
       },
     );
   }
@@ -88,6 +99,44 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<Book>> getAllBooks() => select(books).get();
+
+  // Tag Methods
+  Future<int> createTag(String name, {int? color}) {
+    return into(
+      tags,
+    ).insert(TagsCompanion(name: Value(name), color: Value(color)));
+  }
+
+  Future<List<Tag>> getAllTags() => select(tags).get();
+
+  Future<List<Book>> getBooksByTag(int tagId) {
+    final query = select(books).join([
+      innerJoin(bookTags, bookTags.bookId.equalsExp(books.id)),
+    ])..where(bookTags.tagId.equals(tagId));
+
+    return query.map((row) => row.readTable(books)).get();
+  }
+
+  Future<List<Tag>> getTagsForBook(int bookId) {
+    final query = select(tags).join([
+      innerJoin(bookTags, bookTags.tagId.equalsExp(tags.id)),
+    ])..where(bookTags.bookId.equals(bookId));
+
+    return query.map((row) => row.readTable(tags)).get();
+  }
+
+  Future<void> addTagToBook(int bookId, int tagId) {
+    return into(bookTags).insert(
+      BookTagsCompanion(bookId: Value(bookId), tagId: Value(tagId)),
+      mode: InsertMode.insertOrIgnore,
+    );
+  }
+
+  Future<void> removeTagFromBook(int bookId, int tagId) {
+    return (delete(bookTags)
+          ..where((tbl) => tbl.bookId.equals(bookId) & tbl.tagId.equals(tagId)))
+        .go();
+  }
 }
 
 LazyDatabase _openConnection() {

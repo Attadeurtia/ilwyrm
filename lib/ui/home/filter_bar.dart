@@ -1,45 +1,57 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'filter_provider.dart';
 
-class FilterBar extends ConsumerStatefulWidget {
+import '../../data/database.dart';
+import 'tag_filter_provider.dart';
+
+class FilterBar extends ConsumerWidget {
   const FilterBar({super.key});
 
   @override
-  ConsumerState<FilterBar> createState() => _FilterBarState();
-}
-
-class _FilterBarState extends ConsumerState<FilterBar> {
-  final List<String> _filters = [
-    'Favoris',
-    'BD',
-    '2025',
-    'Roman',
-    'Label',
-    '2024',
-    'Sci-Fi',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final selectedFilters = ref.watch(filterProvider);
+    final selectedTagId = ref.watch(selectedTagProvider);
+    final database = ref.watch(databaseProvider);
 
     return SizedBox(
       height: 50,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: _filters.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final filter = _filters[index];
-          final isSelected = selectedFilters.contains(filter);
-          return FilterChip(
-            label: Text(filter),
-            selected: isSelected,
-            onSelected: (selected) {
-              ref.read(filterProvider.notifier).toggleFilter(filter);
+      child: FutureBuilder<List<Tag>>(
+        future: database.getAllTags(),
+        builder: (context, snapshot) {
+          final tags = snapshot.data ?? [];
+
+          return ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: tags.length + 1, // +1 for Favoris
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                // Favoris Filter
+                final isSelected = selectedFilters.contains('Favoris');
+                return FilterChip(
+                  label: const Text('Favoris'),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    ref.read(filterProvider.notifier).toggleFilter('Favoris');
+                  },
+                );
+              }
+
+              final tag = tags[index - 1];
+              final isSelected = selectedTagId == tag.id;
+              return ChoiceChip(
+                label: Text(tag.name),
+                selected: isSelected,
+                onSelected: (selected) {
+                  ref
+                      .read(selectedTagProvider.notifier)
+                      .set(selected ? tag.id : null);
+                },
+              );
             },
           );
         },

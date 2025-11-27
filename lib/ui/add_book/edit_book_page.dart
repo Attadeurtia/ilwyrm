@@ -89,6 +89,9 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
             shelf: drift.Value(_status),
             shelfName: drift.Value(_getShelfName(_status)),
             coverPath: drift.Value(_localCoverPath),
+            coverUrl: widget.initialBook?.coverUrl != null
+                ? drift.Value(widget.initialBook!.coverUrl)
+                : const drift.Value.absent(),
             dateModified: drift.Value(DateTime.now()),
           ),
         );
@@ -117,6 +120,9 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           // If it's a URL, we might need to download it or store the URL if we add a column.
           // For now, we'll leave coverId absent if not OpenLibrary.
           coverId: const drift.Value.absent(),
+          coverUrl: widget.initialBook?.coverUrl != null
+              ? drift.Value(widget.initialBook!.coverUrl)
+              : const drift.Value.absent(),
           coverPath: drift.Value(_localCoverPath),
           dateAdded: drift.Value(DateTime.now()),
           dateModified: drift.Value(DateTime.now()),

@@ -6,6 +6,7 @@ import '../../data/database.dart';
 import '../add_book/edit_book_page.dart';
 import '../add_book/search_book_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'manage_tags_dialog.dart';
 
 class BookDetailsPage extends ConsumerWidget {
   final int bookId;
@@ -340,6 +341,27 @@ class BookDetailsPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 32),
 
+                // Tags
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Tags', style: Theme.of(context).textTheme.titleLarge),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) =>
+                              ManageTagsDialog(bookId: book.id),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _BookTagsList(bookId: book.id),
+                const SizedBox(height: 32),
+
                 // Status Change Buttons (Ensuring they are here)
                 const Text('Changer de statut'),
                 const SizedBox(height: 8),
@@ -508,6 +530,41 @@ class _AuthorBooksList extends ConsumerWidget {
                       ),
                     );
                   },
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _BookTagsList extends ConsumerWidget {
+  final int bookId;
+
+  const _BookTagsList({required this.bookId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final database = ref.watch(databaseProvider);
+
+    return FutureBuilder<List<Tag>>(
+      future: database.getTagsForBook(bookId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Text('Aucun tag.', style: TextStyle(color: Colors.grey));
+        }
+
+        return Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: snapshot.data!
+              .map(
+                (tag) => Chip(
+                  label: Text(tag.name),
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
                 ),
               )
               .toList(),
