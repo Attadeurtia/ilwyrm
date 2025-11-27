@@ -281,64 +281,8 @@ class BookDetailsPage extends ConsumerWidget {
                 const SizedBox(height: 32),
 
                 // Dates Cards
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Commencé',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        book.startDate != null
-                            ? _formatDate(book.startDate!)
-                            : 'Pas encore commencé',
-                      ),
-                    ],
-                  ),
-                ),
+                _ReadingStatusButton(book: book),
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Fini ?',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        book.finishDate != null
-                            ? _formatDate(book.finishDate!)
-                            : 'En cours ou non lu',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Genre
-                Text('Genre', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [Chip(label: Text(_getShelfLabel(book.shelf)))],
-                ),
                 const SizedBox(height: 32),
 
                 // Tags
@@ -360,31 +304,6 @@ class BookDetailsPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 _BookTagsList(bookId: book.id),
-                const SizedBox(height: 32),
-
-                // Status Change Buttons (Ensuring they are here)
-                const Text('Changer de statut'),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _StatusButton(
-                      label: 'À lire',
-                      isSelected: book.shelf == 'to_read',
-                      onPressed: () => _updateStatus(ref, book, 'to_read'),
-                    ),
-                    _StatusButton(
-                      label: 'En cours',
-                      isSelected: book.shelf == 'reading',
-                      onPressed: () => _updateStatus(ref, book, 'reading'),
-                    ),
-                    _StatusButton(
-                      label: 'Lu',
-                      isSelected: book.shelf == 'read',
-                      onPressed: () => _updateStatus(ref, book, 'read'),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 32),
 
                 // Other books by author
@@ -592,5 +511,105 @@ class _StatusButton extends StatelessWidget {
       selected: isSelected,
       onSelected: (_) => onPressed(),
     );
+  }
+}
+
+class _ReadingStatusButton extends ConsumerWidget {
+  final Book book;
+
+  const _ReadingStatusButton({required this.book});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final database = ref.read(databaseProvider);
+
+    if (book.shelf == 'to_read') {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () async {
+            await (database.update(
+              database.books,
+            )..where((tbl) => tbl.id.equals(book.id))).write(
+              BooksCompanion(
+                shelf: const drift.Value('reading'),
+                startDate: drift.Value(DateTime.now()),
+                dateModified: drift.Value(DateTime.now()),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          ),
+          child: const Text('Commencer', style: TextStyle(fontSize: 18)),
+        ),
+      );
+    } else if (book.shelf == 'reading') {
+      final days = book.startDate != null
+          ? DateTime.now().difference(book.startDate!).inDays
+          : 0;
+      final daysText = days == 0 ? 'aujourd\'hui' : '$days jours';
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Commencé $daysText',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () async {
+              await (database.update(
+                database.books,
+              )..where((tbl) => tbl.id.equals(book.id))).write(
+                BooksCompanion(
+                  shelf: const drift.Value('read'),
+                  finishDate: drift.Value(DateTime.now()),
+                  dateModified: drift.Value(DateTime.now()),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              foregroundColor: Theme.of(context).colorScheme.onSecondary,
+            ),
+            child: const Text('Terminé', style: TextStyle(fontSize: 18)),
+          ),
+        ],
+      );
+    } else if (book.shelf == 'read') {
+      String durationText = 'Unknown duration';
+      if (book.startDate != null && book.finishDate != null) {
+        final days = book.finishDate!.difference(book.startDate!).inDays;
+        durationText = days == 0 ? '1 jour' : '$days jours';
+      }
+
+      return Container(
+        padding: const EdgeInsets.all(16),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Column(
+          children: [
+            const Text(
+              'Temps de lecture',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(durationText, style: Theme.of(context).textTheme.titleMedium),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 }
