@@ -37,3 +37,6 @@ flutter run
 - ajout d'une page de stat
 - ajout d'un about
 - ajout du logo
+- ajout de la selection multiple dans home
+- ajout rapide dans le search
+- revoir l'UI des tags
