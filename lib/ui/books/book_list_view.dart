@@ -157,7 +157,11 @@ class BookListView extends ConsumerWidget {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(4),
                                 image: DecorationImage(
-                                  image: book.coverId != null
+                                  image: book.coverUrl != null
+                                      ? CachedNetworkImageProvider(
+                                          book.coverUrl!,
+                                        )
+                                      : book.coverId != null
                                       ? CachedNetworkImageProvider(
                                           'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
                                         )
@@ -242,7 +246,11 @@ class BookListView extends ConsumerWidget {
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(8),
                                     image: DecorationImage(
-                                      image: book.coverId != null
+                                      image: book.coverUrl != null
+                                          ? CachedNetworkImageProvider(
+                                              book.coverUrl!,
+                                            )
+                                          : book.coverId != null
                                           ? CachedNetworkImageProvider(
                                               'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
                                             )
