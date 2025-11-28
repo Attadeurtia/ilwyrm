@@ -36,3 +36,4 @@ flutter run
 - interface pour PC
 - ajout d'une page de stat
 - ajout d'un about
+- ajout du logo
