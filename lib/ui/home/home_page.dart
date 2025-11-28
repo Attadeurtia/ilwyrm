@@ -12,8 +12,6 @@ import 'local_search_delegate.dart';
 
 import 'tag_filter_provider.dart';
 
-import '../../data/tables/tags.dart';
-
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
