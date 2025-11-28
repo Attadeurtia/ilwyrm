@@ -41,6 +41,7 @@ class GoogleBooksApi implements BookSearchApi {
               : null,
           isbns: isbns,
           numberOfPages: volumeInfo['pageCount'],
+          publisher: volumeInfo['publisher'],
           source: 'google_books',
         );
       }).toList();

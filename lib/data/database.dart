@@ -17,7 +17,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration {
@@ -81,6 +81,15 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(bookTags);
           } catch (e) {
             print('Error creating tags tables: $e');
+          }
+        }
+
+        if (from < 11) {
+          try {
+            await m.addColumn(books, books.publisher);
+            await m.addColumn(books, books.publicationYear);
+          } catch (e) {
+            print('Error adding publisher/year columns: $e');
           }
         }
       },

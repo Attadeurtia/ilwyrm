@@ -10,6 +10,7 @@ class ExternalBook {
   final int? firstPublishYear;
   final List<String>? isbns;
   final int? numberOfPages;
+  final String? publisher;
   final String source; // 'openlibrary', 'google_books', 'inventaire'
 
   ExternalBook({
@@ -20,6 +21,7 @@ class ExternalBook {
     this.firstPublishYear,
     this.isbns,
     this.numberOfPages,
+    this.publisher,
     required this.source,
   });
 }

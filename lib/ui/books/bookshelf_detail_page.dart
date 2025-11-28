@@ -290,6 +290,8 @@ class BookDetailsPage extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 32),
+                _BookMetadataTable(book: book),
+                const SizedBox(height: 32),
 
                 // Dates Cards
                 _ReadingStatusButton(book: book),
@@ -756,6 +758,69 @@ class _LibraryAvailabilityWidgetState
               ),
             ],
           ),
+      ],
+    );
+  }
+}
+
+class _BookMetadataTable extends StatelessWidget {
+  final Book book;
+
+  const _BookMetadataTable({required this.book});
+
+  @override
+  Widget build(BuildContext context) {
+    final Map<String, String?> metadata = {
+      'Éditeur': book.publisher,
+      'Date de publication': book.publicationYear?.toString(),
+      'Nombre de pages': book.pageCount?.toString(),
+    };
+
+    // Filter out null values
+    final validMetadata = Map.fromEntries(
+      metadata.entries.where((e) => e.value != null && e.value!.isNotEmpty),
+    );
+
+    if (validMetadata.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Informations bibliographiques',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Table(
+          columnWidths: const {0: IntrinsicColumnWidth(), 1: FlexColumnWidth()},
+          children: validMetadata.entries.map((entry) {
+            return TableRow(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0, right: 16.0),
+                  child: Text(
+                    entry.key,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text(
+                    entry.value!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
       ],
     );
   }

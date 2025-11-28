@@ -26,6 +26,9 @@ class Books extends Table {
   TextColumn get oclcNumber => text().named('oclc_number').nullable()();
   IntColumn get pageCount => integer().named('page_count').nullable()();
   IntColumn get currentPage => integer().named('current_page').nullable()();
+  TextColumn get publisher => text().nullable()();
+  IntColumn get publicationYear =>
+      integer().named('publication_year').nullable()();
 
   // Reading Status & Dates
   DateTimeColumn get startDate => dateTime().named('start_date').nullable()();

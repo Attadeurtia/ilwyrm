@@ -20,6 +20,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
   late TextEditingController _authorController;
+  late TextEditingController _publisherController;
+  late TextEditingController _yearController;
   late TextEditingController _pageCountController;
   String _status = 'to_read'; // Default status
   String? _localCoverPath;
@@ -34,6 +36,12 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
       _authorController = TextEditingController(
         text: widget.existingBook!.authorText ?? '',
       );
+      _publisherController = TextEditingController(
+        text: widget.existingBook!.publisher ?? '',
+      );
+      _yearController = TextEditingController(
+        text: widget.existingBook!.publicationYear?.toString() ?? '',
+      );
       _pageCountController = TextEditingController(
         text: widget.existingBook!.pageCount?.toString() ?? '',
       );
@@ -46,6 +54,12 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
       _authorController = TextEditingController(
         text: widget.initialBook?.authorText ?? '',
       );
+      _publisherController = TextEditingController(
+        text: widget.initialBook?.publisher ?? '',
+      );
+      _yearController = TextEditingController(
+        text: widget.initialBook?.firstPublishYear?.toString() ?? '',
+      );
       _pageCountController = TextEditingController(
         text: widget.initialBook?.numberOfPages?.toString() ?? '',
       );
@@ -56,6 +70,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
   void dispose() {
     _titleController.dispose();
     _authorController.dispose();
+    _publisherController.dispose();
+    _yearController.dispose();
     _pageCountController.dispose();
     super.dispose();
   }
@@ -76,6 +92,7 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
     if (_formKey.currentState!.validate()) {
       final database = ref.read(databaseProvider);
       final int? pageCount = int.tryParse(_pageCountController.text);
+      final int? year = int.tryParse(_yearController.text);
 
       if (widget.existingBook != null) {
         // Update existing
@@ -85,6 +102,12 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           BooksCompanion(
             title: drift.Value(_titleController.text),
             authorText: drift.Value(_authorController.text),
+            publisher: drift.Value(
+              _publisherController.text.isEmpty
+                  ? null
+                  : _publisherController.text,
+            ),
+            publicationYear: drift.Value(year),
             pageCount: drift.Value(pageCount),
             shelf: drift.Value(_status),
             shelfName: drift.Value(_getShelfName(_status)),
@@ -100,6 +123,12 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
         final book = BooksCompanion(
           title: drift.Value(_titleController.text),
           authorText: drift.Value(_authorController.text),
+          publisher: drift.Value(
+            _publisherController.text.isEmpty
+                ? null
+                : _publisherController.text,
+          ),
+          publicationYear: drift.Value(year),
           pageCount: drift.Value(pageCount),
           shelf: drift.Value(_status),
           shelfName: drift.Value(_getShelfName(_status)),
@@ -234,6 +263,23 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
               controller: _authorController,
               decoration: const InputDecoration(
                 labelText: 'Auteur',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _publisherController,
+              decoration: const InputDecoration(
+                labelText: 'Éditeur',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _yearController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Année de publication',
                 border: OutlineInputBorder(),
               ),
             ),

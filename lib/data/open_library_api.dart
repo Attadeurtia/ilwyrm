@@ -8,7 +8,7 @@ class OpenLibraryApi implements BookSearchApi {
   @override
   Future<List<ExternalBook>> searchBooks(String query) async {
     final url = Uri.parse(
-      '$_baseUrl/search.json?q=${Uri.encodeComponent(query)}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median&limit=20',
+      '$_baseUrl/search.json?q=${Uri.encodeComponent(query)}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,publisher&limit=20',
     );
 
     final response = await http.get(url);
@@ -24,6 +24,9 @@ class OpenLibraryApi implements BookSearchApi {
         final isbns = (json['isbn'] as List?)
             ?.map((e) => e.toString())
             .toList();
+        final publishers = (json['publisher'] as List?)
+            ?.map((e) => e.toString())
+            .toList();
 
         return ExternalBook(
           key: json['key'],
@@ -35,6 +38,7 @@ class OpenLibraryApi implements BookSearchApi {
           firstPublishYear: json['first_publish_year'],
           isbns: isbns,
           numberOfPages: json['number_of_pages_median'],
+          publisher: publishers?.firstOrNull,
           source: 'openlibrary',
         );
       }).toList();
