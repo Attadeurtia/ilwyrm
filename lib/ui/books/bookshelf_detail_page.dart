@@ -6,6 +6,8 @@ import '../../data/database.dart';
 import '../add_book/edit_book_page.dart';
 import '../add_book/search_book_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../data/library_availability_api.dart';
+import '../../data/settings_repository.dart';
 import 'manage_tags_dialog.dart';
 
 class BookDetailsPage extends ConsumerWidget {
@@ -292,6 +294,7 @@ class BookDetailsPage extends ConsumerWidget {
                 // Dates Cards
                 _ReadingStatusButton(book: book),
                 const SizedBox(height: 16),
+                _LibraryAvailabilityWidget(book: book),
                 const SizedBox(height: 32),
 
                 // Tags
@@ -620,5 +623,140 @@ class _ReadingStatusButton extends ConsumerWidget {
     }
 
     return const SizedBox.shrink();
+  }
+}
+
+class _LibraryAvailabilityWidget extends ConsumerStatefulWidget {
+  final Book book;
+
+  const _LibraryAvailabilityWidget({required this.book});
+
+  @override
+  ConsumerState<_LibraryAvailabilityWidget> createState() =>
+      _LibraryAvailabilityWidgetState();
+}
+
+class _LibraryAvailabilityWidgetState
+    extends ConsumerState<_LibraryAvailabilityWidget> {
+  bool _isLoading = false;
+  LibraryAvailabilityResponse? _response;
+  String? _error;
+
+  Future<void> _checkAvailability() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _response = null;
+    });
+
+    try {
+      final api = ref.read(libraryAvailabilityApiProvider);
+      final response = await api.checkAvailability(
+        title: widget.book.title,
+        author: widget.book.authorText ?? '',
+        isbn: widget.book.isbn13 ?? widget.book.isbn10,
+      );
+      setState(() {
+        _response = response;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = ref.watch(settingsRepositoryProvider);
+    if (!settings.isLibraryAvailabilityEnabled) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Disponibilité en bibliothèque',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            if (_response != null)
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _isLoading ? null : _checkAvailability,
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_response == null && !_isLoading && _error == null)
+          ElevatedButton.icon(
+            onPressed: _checkAvailability,
+            icon: const Icon(Icons.local_library),
+            label: const Text('Vérifier la disponibilité'),
+          )
+        else if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_error != null)
+          Text(
+            'Erreur : $_error',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          )
+        else if (_response != null)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    _response!.available ? Icons.check_circle : Icons.cancel,
+                    color: _response!.available
+                        ? Colors.green
+                        : Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _response!.available ? 'Disponible' : 'Non disponible',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _response!.available
+                          ? Colors.green
+                          : Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_response!.details.isNotEmpty)
+                ..._response!.details.map(
+                  (detail) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(detail.library),
+                    subtitle: Text('${detail.status} - ${detail.callNumber}'),
+                    trailing: Icon(
+                      detail.available ? Icons.check : Icons.close,
+                      color: detail.available ? Colors.green : Colors.grey,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 4),
+              Text(
+                'Dernière vérification : ${DateTime.fromMillisecondsSinceEpoch(_response!.lastCheck).toString()}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+      ],
+    );
   }
 }

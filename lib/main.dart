@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'data/database.dart';
 import 'data/seed_data.dart';
+import 'data/settings_repository.dart';
 import 'ui/home/home_page.dart';
 
 void main() async {
@@ -12,9 +14,14 @@ void main() async {
   final db = AppDatabase();
   await seedDatabase(db);
 
+  final prefs = await SharedPreferences.getInstance();
+
   runApp(
     ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(db)],
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
       child: const IlwyrmApp(),
     ),
   );

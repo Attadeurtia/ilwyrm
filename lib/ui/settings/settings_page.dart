@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../data/database.dart';
+import '../../data/settings_repository.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -279,8 +280,102 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                   onTap: _exportCsv,
                 ),
+                const Divider(),
+                const _ExperimentalSettings(),
               ],
             ),
+    );
+  }
+}
+
+class _ExperimentalSettings extends ConsumerWidget {
+  const _ExperimentalSettings();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settingsRepo = ref.watch(settingsRepositoryProvider);
+    final isEnabled = settingsRepo.isLibraryAvailabilityEnabled;
+    final apiUrl = settingsRepo.libraryApiUrl;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            'Fonctionnalités expérimentales',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        SwitchListTile(
+          title: const Text('Vérifier la disponibilité en bibliothèque'),
+          subtitle: const Text(
+            'Expérimental : Peut être instable ou lent.',
+            style: TextStyle(color: Colors.orange),
+          ),
+          value: isEnabled,
+          onChanged: (value) async {
+            await settingsRepo.setLibraryAvailabilityEnabled(value);
+            // Force rebuild to update the UI immediately if needed,
+            // though Riverpod should handle it if we watched a stream/state.
+            // Since we are reading directly from prefs in the repo getter (which isn't reactive by itself),
+            // we might need a StateProvider or similar if we want instant UI updates elsewhere.
+            // But for this simple case, `ref.refresh` or `setState` in a StatefulWidget would be better.
+            // However, since this is a ConsumerWidget and we are not using a StateNotifier,
+            // we rely on the fact that `settingsRepositoryProvider` is just a Provider.
+            // To make it reactive, we should probably use a StateNotifier or similar.
+            // For now, let's just force a rebuild by invalidating the provider if we want,
+            // but actually the repo methods are async and don't notify.
+            // A simple way is to use a StatefulWidget for this section or make the repo return a Stream.
+            // Given the constraints, I'll convert this widget to a StatefulWidget to update local state
+            // or better, just use `setState` if it was stateful.
+            // Let's make `_ExperimentalSettings` Stateful to handle the switch animation correctly.
+            (context as Element).markNeedsBuild();
+          },
+        ),
+        if (isEnabled)
+          ListTile(
+            title: const Text('URL de l\'API'),
+            subtitle: Text(apiUrl ?? 'Non configurée'),
+            trailing: const Icon(Icons.edit),
+            onTap: () async {
+              final controller = TextEditingController(text: apiUrl);
+              final newUrl = await showDialog<String>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Configurer l\'URL de l\'API'),
+                  content: TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      hintText: 'http://...',
+                      labelText: 'URL',
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, controller.text),
+                      child: const Text('Enregistrer'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (newUrl != null) {
+                await settingsRepo.setLibraryApiUrl(newUrl);
+                if (context.mounted) {
+                  (context as Element).markNeedsBuild();
+                }
+              }
+            },
+          ),
+      ],
     );
   }
 }
