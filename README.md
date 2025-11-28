@@ -1,16 +1,38 @@
-# ilwyrm
+# Ilwyrm
 
-A new Flutter project.
+Ilwyrm est une application Flutter pour gérer votre collection de livres. Ilwyrm permet de suivre vos livres, de les ajouter, de les supprimer, de les modifier, de les rechercher et de les trier.
 
-## Getting Started
+Elle est conçue pour être rapide et réactive, offrant une expérience utilisateur fluide.
 
-This project is a starting point for a Flutter application.
+L'application tire son nom du service fédéré Bookwyrm et est pensée pour être un front à ce service le jour où une API sera disponible. En attendant, il permet de suivre vos livres et de les ajouter à votre collection en local avec une fonction d'importation et d'exportation via un fichier CSV vers Bookwyrm.
 
-A few resources to get you started if this is your first Flutter project:
+## Fonctionnalités
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Les agrégations sont faites via les API suivantes :
+- Open Library
+- Google Books
+- Inventaire.io
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+L'application est compatible avec Material Design 3 de Google.
+
+Le logo de l'application est inspiré de l'illustration de la couverture de machin.
+
+## Installation
+
+Pour installer les dépendances et lancer l'application :
+
+```bash
+flutter pub get
+flutter run
+```
+
+## Reste à faire
+
+- export file / import file
+- ajout d'animations et de transitions
+- faire la béta
+- ajout de dossier
+- ajout du multilangage
+- interface pour PC
+- ajout d'une page de stat
+- ajout d'un about
