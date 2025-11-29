@@ -52,6 +52,17 @@ dependencies:
   share_plus: ^12.0.1
   flutter_staggered_animations: ^1.1.1
   shared_preferences: ^2.5.3
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  linux: true
+  macos:
+    generate: true
+  image_path: "assets/icon/foreground.png"
+  adaptive_icon_background: "assets/icon/background.png"
+  adaptive_icon_foreground: "assets/icon/foreground.png"
 
 dev_dependencies:
   flutter_test:
@@ -107,3 +118,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+
