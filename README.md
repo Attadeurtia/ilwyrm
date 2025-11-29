@@ -6,6 +6,21 @@ Elle est conçue pour être rapide et réactive, offrant une expérience utilisa
 
 L'application tire son nom du service fédéré Bookwyrm et est pensée pour être un front à ce service le jour où une API sera disponible. En attendant, il permet de suivre vos livres et de les ajouter à votre collection en local avec une fonction d'importation et d'exportation via un fichier CSV vers Bookwyrm.
 
+## Captures d’écran
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+
+<img src="assets/screenshots/Screenshot-1.png" width="30%" />
+<img src="assets/screenshots/Screenshot-2.png" width="30%" />
+<img src="assets/screenshots/Screenshot-3.png" width="30%" />
+<img src="assets/screenshots/Screenshot-4.png" width="30%" />
+<img src="assets/screenshots/Screenshot-7.png" width="30%" />
+<img src="assets/screenshots/Screenshot-5.png" width="30%" />
+
+
+</div>
+
+
 ## Fonctionnalités
 
 Les agrégations sont faites via les API suivantes :
