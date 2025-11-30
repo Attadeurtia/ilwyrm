@@ -15,6 +15,8 @@ import 'selection_provider.dart';
 import '../../data/database.dart';
 import 'package:drift/drift.dart' as drift;
 import '../add_book/edit_book_page.dart';
+import '../../data/settings_repository.dart';
+import 'availability_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -141,6 +143,31 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
               title: const Text('Ilwyrm'),
               actions: [
+                Consumer(
+                  builder: (context, ref, child) {
+                    final selectedTagId = ref.watch(selectedTagProvider);
+                    final settingsRepo = ref.watch(settingsRepositoryProvider);
+                    final isExperimental =
+                        settingsRepo.isLibraryAvailabilityEnabled;
+
+                    if (isExperimental && selectedTagId != null) {
+                      return IconButton(
+                        icon: const Icon(Icons.travel_explore),
+                        tooltip: 'Vérifier la disponibilité',
+                        onPressed: () async {
+                          final database = ref.read(databaseProvider);
+                          final books = await database.getBooksByTag(
+                            selectedTagId,
+                          );
+                          ref
+                              .read(availabilityProvider.notifier)
+                              .checkAvailabilityForBooks(books);
+                        },
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
                 Padding(
                   padding: const EdgeInsets.only(right: 16.0),
                   child: GestureDetector(

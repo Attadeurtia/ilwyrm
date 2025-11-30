@@ -6,9 +6,9 @@ import '../../data/database.dart';
 import '../add_book/edit_book_page.dart';
 import '../add_book/search_book_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../data/library_availability_api.dart';
 import '../../data/settings_repository.dart';
 import 'manage_tags_dialog.dart';
+import '../home/availability_provider.dart';
 
 class BookDetailsPage extends ConsumerWidget {
   final int bookId;
@@ -643,34 +643,28 @@ class _LibraryAvailabilityWidget extends ConsumerStatefulWidget {
 class _LibraryAvailabilityWidgetState
     extends ConsumerState<_LibraryAvailabilityWidget> {
   bool _isLoading = false;
-  LibraryAvailabilityResponse? _response;
   String? _error;
 
   Future<void> _checkAvailability() async {
     setState(() {
       _isLoading = true;
       _error = null;
-      _response = null;
     });
 
     try {
-      final api = ref.read(libraryAvailabilityApiProvider);
-      final response = await api.checkAvailability(
-        title: widget.book.title,
-        author: widget.book.authorText ?? '',
-        isbn: widget.book.isbn13 ?? widget.book.isbn10,
-      );
-      setState(() {
-        _response = response;
-      });
+      await ref.read(availabilityProvider.notifier).checkAvailabilityForBooks([
+        widget.book,
+      ]);
     } catch (e) {
       setState(() {
         _error = e.toString();
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -680,6 +674,9 @@ class _LibraryAvailabilityWidgetState
     if (!settings.isLibraryAvailabilityEnabled) {
       return const SizedBox.shrink();
     }
+
+    final availabilityState = ref.watch(availabilityProvider);
+    final response = availabilityState[widget.book.id];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,7 +690,7 @@ class _LibraryAvailabilityWidgetState
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
-            if (_response != null)
+            if (response != null)
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _isLoading ? null : _checkAvailability,
@@ -701,7 +698,7 @@ class _LibraryAvailabilityWidgetState
           ],
         ),
         const SizedBox(height: 8),
-        if (_response == null && !_isLoading && _error == null)
+        if (response == null && !_isLoading && _error == null)
           ElevatedButton.icon(
             onPressed: _checkAvailability,
             icon: const Icon(Icons.local_library),
@@ -714,24 +711,24 @@ class _LibraryAvailabilityWidgetState
             'Erreur : $_error',
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           )
-        else if (_response != null)
+        else if (response != null)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Icon(
-                    _response!.available ? Icons.check_circle : Icons.cancel,
-                    color: _response!.available
+                    response.available ? Icons.check_circle : Icons.cancel,
+                    color: response.available
                         ? Colors.green
                         : Theme.of(context).colorScheme.error,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    _response!.available ? 'Disponible' : 'Non disponible',
+                    response.available ? 'Disponible' : 'Non disponible',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: _response!.available
+                      color: response.available
                           ? Colors.green
                           : Theme.of(context).colorScheme.error,
                     ),
@@ -739,8 +736,8 @@ class _LibraryAvailabilityWidgetState
                 ],
               ),
               const SizedBox(height: 8),
-              if (_response!.details.isNotEmpty)
-                ..._response!.details.map(
+              if (response.details.isNotEmpty)
+                ...response.details.map(
                   (detail) => ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -755,7 +752,7 @@ class _LibraryAvailabilityWidgetState
                 ),
               const SizedBox(height: 4),
               Text(
-                'Dernière vérification : ${DateTime.fromMillisecondsSinceEpoch(_response!.lastCheck).toString()}',
+                'Dernière vérification : ${DateTime.fromMillisecondsSinceEpoch(response.lastCheck).toString()}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

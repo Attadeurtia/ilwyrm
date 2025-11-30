@@ -9,6 +9,7 @@ import '../home/filter_provider.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../home/selection_provider.dart';
+import '../home/availability_provider.dart';
 
 class BookListView extends ConsumerWidget {
   final String status;
@@ -33,6 +34,7 @@ class BookListView extends ConsumerWidget {
     final sortOption = ref.watch(sortProvider);
     final filters = ref.watch(filterProvider);
     final selectionState = ref.watch(selectionProvider);
+    final availabilityState = ref.watch(availabilityProvider);
 
     Stream<List<Book>> bookStream;
 
@@ -139,6 +141,22 @@ class BookListView extends ConsumerWidget {
               itemCount: books.length,
               itemBuilder: (context, index) {
                 final book = books[index];
+                final availabilityResponse = tagId != null
+                    ? availabilityState[book.id]
+                    : null;
+                IconData? statusIcon;
+                Color? statusColor;
+
+                if (availabilityResponse != null) {
+                  if (availabilityResponse.available) {
+                    statusIcon = Icons.check_circle;
+                    statusColor = Colors.green;
+                  } else {
+                    statusIcon = Icons.cancel;
+                    statusColor = Colors.red;
+                  }
+                }
+
                 return AnimationConfiguration.staggeredList(
                   position: index,
                   duration: const Duration(milliseconds: 375),
@@ -166,6 +184,7 @@ class BookListView extends ConsumerWidget {
                                   height: 75,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(4),
+                                    border: null,
                                     image: DecorationImage(
                                       image: book.coverUrl != null
                                           ? CachedNetworkImageProvider(
@@ -212,6 +231,9 @@ class BookListView extends ConsumerWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
+                          trailing: statusIcon != null
+                              ? Icon(statusIcon, color: statusColor)
+                              : null,
                           onTap: () {
                             if (selectionState.isSelecting) {
                               ref
@@ -253,6 +275,18 @@ class BookListView extends ConsumerWidget {
               itemCount: books.length,
               itemBuilder: (context, index) {
                 final book = books[index];
+                final availabilityResponse = tagId != null
+                    ? availabilityState[book.id]
+                    : null;
+                Color? borderColor;
+                if (availabilityResponse != null) {
+                  if (availabilityResponse.available) {
+                    borderColor = Colors.green;
+                  } else {
+                    borderColor = Colors.red;
+                  }
+                }
+
                 return AnimationConfiguration.staggeredGrid(
                   position: index,
                   duration: const Duration(milliseconds: 375),
@@ -289,6 +323,12 @@ class BookListView extends ConsumerWidget {
                                     child: Container(
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(8),
+                                        border: borderColor != null
+                                            ? Border.all(
+                                                color: borderColor,
+                                                width: 3,
+                                              )
+                                            : null,
                                         image: DecorationImage(
                                           image: book.coverUrl != null
                                               ? CachedNetworkImageProvider(
