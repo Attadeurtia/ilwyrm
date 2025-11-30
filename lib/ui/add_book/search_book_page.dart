@@ -4,17 +4,20 @@ import '../../data/google_books_api.dart';
 import '../../data/inventaire_api.dart';
 import '../../data/open_library_api.dart';
 import 'edit_book_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart' as drift;
+import '../../data/database.dart';
 
-class SearchBookPage extends StatefulWidget {
+class SearchBookPage extends ConsumerStatefulWidget {
   final String? initialQuery;
 
   const SearchBookPage({super.key, this.initialQuery});
 
   @override
-  State<SearchBookPage> createState() => _SearchBookPageState();
+  ConsumerState<SearchBookPage> createState() => _SearchBookPageState();
 }
 
-class _SearchBookPageState extends State<SearchBookPage>
+class _SearchBookPageState extends ConsumerState<SearchBookPage>
     with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   late TabController _tabController;
@@ -100,6 +103,44 @@ class _SearchBookPageState extends State<SearchBookPage>
     }
   }
 
+  Future<void> _quickAddBook(ExternalBook book) async {
+    final database = ref.read(databaseProvider);
+    final newBook = BooksCompanion(
+      title: drift.Value(book.title),
+      authorText: drift.Value(book.authorText),
+      publisher: book.publisher != null
+          ? drift.Value(book.publisher)
+          : const drift.Value.absent(),
+      publicationYear: book.firstPublishYear != null
+          ? drift.Value(book.firstPublishYear)
+          : const drift.Value.absent(),
+      pageCount: book.numberOfPages != null
+          ? drift.Value(book.numberOfPages)
+          : const drift.Value.absent(),
+      shelf: const drift.Value('to_read'),
+      shelfName: const drift.Value('À lire'),
+      openlibraryKey: book.key.isNotEmpty && book.source == 'openlibrary'
+          ? drift.Value(book.key.split('/').last)
+          : const drift.Value.absent(),
+      isbn13: book.isbns?.isNotEmpty == true
+          ? drift.Value(book.isbns!.first)
+          : const drift.Value.absent(),
+      coverUrl: book.coverUrl != null
+          ? drift.Value(book.coverUrl)
+          : const drift.Value.absent(),
+      dateAdded: drift.Value(DateTime.now()),
+      dateModified: drift.Value(DateTime.now()),
+    );
+
+    await database.into(database.books).insert(newBook);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Livre ajouté à la liste de lecture !')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -180,6 +221,11 @@ class _SearchBookPageState extends State<SearchBookPage>
           title: Text(book.title),
           subtitle: Text(
             '${book.authorText} (${book.firstPublishYear ?? "?"})',
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Ajouter à la liste de lecture',
+            onPressed: () => _quickAddBook(book),
           ),
           onTap: () {
             Navigator.push(
