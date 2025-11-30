@@ -8,6 +8,7 @@ import '../home/view_provider.dart';
 import '../home/filter_provider.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import '../home/selection_provider.dart';
 
 class BookListView extends ConsumerWidget {
   final String status;
@@ -31,6 +32,7 @@ class BookListView extends ConsumerWidget {
 
     final sortOption = ref.watch(sortProvider);
     final filters = ref.watch(filterProvider);
+    final selectionState = ref.watch(selectionProvider);
 
     Stream<List<Book>> bookStream;
 
@@ -149,35 +151,55 @@ class BookListView extends ConsumerWidget {
                           horizontal: 8,
                         ),
                         child: ListTile(
-                          leading: Hero(
-                            tag: 'book_cover_${book.id}',
-                            child: Container(
-                              width: 50,
-                              height: 75,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(4),
-                                image: DecorationImage(
-                                  image: book.coverUrl != null
-                                      ? CachedNetworkImageProvider(
-                                          book.coverUrl!,
-                                        )
-                                      : book.coverId != null
-                                      ? CachedNetworkImageProvider(
-                                          'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
-                                        )
-                                      : book.openlibraryKey != null
-                                      ? CachedNetworkImageProvider(
-                                          'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
-                                        )
-                                      : const AssetImage(
-                                              'assets/placeholder_book.png',
+                          selected: selectionState.selectedIds.contains(
+                            book.id,
+                          ),
+                          selectedTileColor: Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer.withOpacity(0.2),
+                          leading: Stack(
+                            children: [
+                              Hero(
+                                tag: 'book_cover_${book.id}',
+                                child: Container(
+                                  width: 50,
+                                  height: 75,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    image: DecorationImage(
+                                      image: book.coverUrl != null
+                                          ? CachedNetworkImageProvider(
+                                              book.coverUrl!,
                                             )
-                                            as ImageProvider,
-                                  fit: BoxFit.cover,
-                                  onError: (_, __) {},
+                                          : book.coverId != null
+                                          ? CachedNetworkImageProvider(
+                                              'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
+                                            )
+                                          : book.openlibraryKey != null
+                                          ? CachedNetworkImageProvider(
+                                              'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
+                                            )
+                                          : const AssetImage(
+                                                  'assets/placeholder_book.png',
+                                                )
+                                                as ImageProvider,
+                                      fit: BoxFit.cover,
+                                      onError: (_, __) {},
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              if (selectionState.selectedIds.contains(book.id))
+                                Positioned.fill(
+                                  child: Container(
+                                    color: Colors.black45,
+                                    child: const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                           title: Text(
                             book.title,
@@ -191,13 +213,24 @@ class BookListView extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    BookDetailsPage(bookId: book.id),
-                              ),
-                            );
+                            if (selectionState.isSelecting) {
+                              ref
+                                  .read(selectionProvider.notifier)
+                                  .toggle(book.id);
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      BookDetailsPage(bookId: book.id),
+                                ),
+                              );
+                            }
+                          },
+                          onLongPress: () {
+                            ref
+                                .read(selectionProvider.notifier)
+                                .select(book.id);
                           },
                         ),
                       ),
@@ -228,54 +261,85 @@ class BookListView extends ConsumerWidget {
                     child: FadeInAnimation(
                       child: GestureDetector(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  BookDetailsPage(bookId: book.id),
-                            ),
-                          );
+                          if (selectionState.isSelecting) {
+                            ref
+                                .read(selectionProvider.notifier)
+                                .toggle(book.id);
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    BookDetailsPage(bookId: book.id),
+                              ),
+                            );
+                          }
+                        },
+                        onLongPress: () {
+                          ref.read(selectionProvider.notifier).select(book.id);
                         },
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: Hero(
-                                tag: 'book_cover_${book.id}',
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    image: DecorationImage(
-                                      image: book.coverUrl != null
-                                          ? CachedNetworkImageProvider(
-                                              book.coverUrl!,
-                                            )
-                                          : book.coverId != null
-                                          ? CachedNetworkImageProvider(
-                                              'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
-                                            )
-                                          : book.openlibraryKey != null
-                                          ? CachedNetworkImageProvider(
-                                              'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
-                                            )
-                                          : const AssetImage(
-                                                  'assets/placeholder_book.png',
+                              child: Stack(
+                                children: [
+                                  Hero(
+                                    tag: 'book_cover_${book.id}',
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        image: DecorationImage(
+                                          image: book.coverUrl != null
+                                              ? CachedNetworkImageProvider(
+                                                  book.coverUrl!,
                                                 )
-                                                as ImageProvider,
-                                      fit: BoxFit.cover,
-                                      onError: (_, __) {},
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.2,
+                                              : book.coverId != null
+                                              ? CachedNetworkImageProvider(
+                                                  'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
+                                                )
+                                              : book.openlibraryKey != null
+                                              ? CachedNetworkImageProvider(
+                                                  'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
+                                                )
+                                              : const AssetImage(
+                                                      'assets/placeholder_book.png',
+                                                    )
+                                                    as ImageProvider,
+                                          fit: BoxFit.cover,
+                                          onError: (_, __) {},
                                         ),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.2,
+                                            ),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                  if (selectionState.selectedIds.contains(
+                                    book.id,
+                                  ))
+                                    Positioned.fill(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.black45,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.check_circle,
+                                          color: Colors.white,
+                                          size: 40,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                             if (viewOption == ViewOption.gridWithDetails) ...[

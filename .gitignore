@@ -46,3 +46,4 @@ app.*.map.json
 inventaire_editions.json
 inventaire_response.json
 inventaire_entity.json
+analysis.txt
