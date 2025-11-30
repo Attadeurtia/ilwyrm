@@ -282,6 +282,32 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 const Divider(),
                 const _ExperimentalSettings(),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('À propos'),
+                  onTap: () {
+                    showAboutDialog(
+                      context: context,
+                      applicationName: 'Ilwyrm',
+                      applicationVersion: '1.0.0',
+                      applicationIcon: const Icon(Icons.menu_book, size: 48),
+                      applicationLegalese: '© 2025 Ilwyrm',
+                      children: [
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Ilwyrm est une application de gestion de bibliothèque personnelle open-source développée par Attadeurtia (https://github.com/attadeurtia).',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Code source disponible sur GitHub : https://github.com/attadeurtia/ilwyrm',
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
     );

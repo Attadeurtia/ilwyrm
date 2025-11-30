@@ -244,18 +244,18 @@ class _HomePageState extends ConsumerState<HomePage> {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.bookmark_border),
-            selectedIcon: Icon(Icons.bookmark),
+            icon: Icon(Icons.book_outlined),
+            selectedIcon: Icon(Icons.book),
             label: 'À lire',
           ),
           NavigationDestination(
-            icon: Icon(Icons.menu_book),
-            selectedIcon: Icon(Icons.menu_book), // Or a filled variant
+            icon: Icon(Icons.auto_stories_outlined),
+            selectedIcon: Icon(Icons.auto_stories), // Or a filled variant
             label: 'En cours',
           ),
           NavigationDestination(
             icon: Icon(Icons.check),
-            selectedIcon: Icon(Icons.check_circle),
+            selectedIcon: Icon(Icons.done_all),
             label: 'Lus',
           ),
         ],

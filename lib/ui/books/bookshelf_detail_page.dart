@@ -229,37 +229,44 @@ class BookDetailsPage extends ConsumerWidget {
                                 );
                               }
                             },
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 const Icon(
                                   Icons.copy,
-                                  size: 16,
+                                  size: 15,
                                   color: Colors.grey,
                                 ),
+                                const SizedBox(width: 4),
                                 Text(
-                                  'ISBN',
+                                  'ISBN :',
                                   style: Theme.of(context).textTheme.labelLarge
                                       ?.copyWith(
                                         color: Colors.grey,
                                         fontWeight: FontWeight.bold,
                                       ),
                                 ),
+                                const SizedBox(width: 8),
                                 Text(book.isbn13 ?? 'Inconnu'),
                               ],
                             ),
                           ),
                           const SizedBox(height: 16),
                           // Added Date
-                          Text(
-                            'Ajouté',
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(
-                                  color: Colors.grey,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          Row(
+                            children: [
+                              Text(
+                                'Ajouté :',
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(_formatDate(book.dateAdded)),
+                            ],
                           ),
-                          Text(_formatDate(book.dateAdded)),
                         ],
                       ),
                     ),

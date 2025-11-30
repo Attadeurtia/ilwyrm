@@ -24,9 +24,9 @@ L'application tire son nom du service fédéré Bookwyrm et est pensée pour êt
 ## Fonctionnalités
 
 Les agrégations sont faites via les API suivantes :
-- Open Library
-- Google Books
-- Inventaire.io
+-  Open Library
+-  Google Books
+-  Inventaire.io
 
 L'application est compatible avec Material Design 3 de Google.
 
@@ -43,15 +43,15 @@ flutter run
 
 ## Reste à faire
 
-- export file / import file
-- ajout d'animations et de transitions
-- faire la béta
-- ajout de dossier
-- ajout du multilangage
-- interface pour PC
-- ajout d'une page de stat
-- ajout d'un about
-- ajout du logo
-- ajout de la selection multiple dans home
-- ajout rapide dans le search
-- revoir l'UI des tags
+- [ ] export file / import file
+- [ ] ajout d'animations et de transitions
+- [ ] faire la béta
+- [x] ajout de dossier
+- [ ] ajout du multilangage
+- [ ] interface pour PC
+- [ ] ajout d'une page de stat
+- [x] ajout d'un about
+- [x] ajout du logo
+- [ ] ajout de la selection multiple dans home
+- [x] ajout rapide dans le search
+- [ ] revoir l'UI des tags
