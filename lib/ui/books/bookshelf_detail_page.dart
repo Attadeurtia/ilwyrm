@@ -209,22 +209,10 @@ class BookDetailsPage extends ConsumerWidget {
                               style: Theme.of(context).textTheme.bodyLarge,
                             ),
                           const SizedBox(height: 16),
+
                           // Pages
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.menu_book,
-                                size: 16,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${book.pageCount ?? "?"} pages',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 16),
+
                           // ISBN
                           InkWell(
                             onTap: () {
@@ -244,6 +232,11 @@ class BookDetailsPage extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                const Icon(
+                                  Icons.copy,
+                                  size: 16,
+                                  color: Colors.grey,
+                                ),
                                 Text(
                                   'ISBN',
                                   style: Theme.of(context).textTheme.labelLarge
@@ -607,9 +600,11 @@ class _ReadingStatusButton extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.grey[200],
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          ),
         ),
         child: Column(
           children: [
