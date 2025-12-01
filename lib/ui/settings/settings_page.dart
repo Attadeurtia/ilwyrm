@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../data/database.dart';
 import '../../data/settings_repository.dart';
+import '../theme_extensions.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -338,9 +339,9 @@ class _ExperimentalSettings extends ConsumerWidget {
         ),
         SwitchListTile(
           title: const Text('Vérifier la disponibilité en bibliothèque'),
-          subtitle: const Text(
+          subtitle: Text(
             'Expérimental : Peut être instable ou lent.',
-            style: TextStyle(color: Colors.orange),
+            style: TextStyle(color: context.semanticColors.warning),
           ),
           value: isEnabled,
           onChanged: (value) async {

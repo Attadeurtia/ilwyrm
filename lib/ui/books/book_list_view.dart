@@ -10,6 +10,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../home/selection_provider.dart';
 import '../home/availability_provider.dart';
+import '../theme_extensions.dart';
 
 class BookListView extends ConsumerWidget {
   final String status;
@@ -150,10 +151,10 @@ class BookListView extends ConsumerWidget {
                 if (availabilityResponse != null) {
                   if (availabilityResponse.available) {
                     statusIcon = Icons.check_circle;
-                    statusColor = Colors.green;
+                    statusColor = context.semanticColors.success;
                   } else {
                     statusIcon = Icons.cancel;
-                    statusColor = Colors.red;
+                    statusColor = Theme.of(context).colorScheme.error;
                   }
                 }
 
@@ -174,7 +175,7 @@ class BookListView extends ConsumerWidget {
                           ),
                           selectedTileColor: Theme.of(
                             context,
-                          ).colorScheme.primaryContainer.withOpacity(0.2),
+                          ).colorScheme.primaryContainer.withValues(alpha: 0.2),
                           leading: Stack(
                             children: [
                               Hero(
@@ -211,10 +212,13 @@ class BookListView extends ConsumerWidget {
                               if (selectionState.selectedIds.contains(book.id))
                                 Positioned.fill(
                                   child: Container(
-                                    color: Colors.black45,
-                                    child: const Icon(
+                                    color: Theme.of(context).colorScheme.shadow
+                                        .withValues(alpha: 0.45),
+                                    child: Icon(
                                       Icons.check_circle,
-                                      color: Colors.white,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimary,
                                     ),
                                   ),
                                 ),
@@ -281,9 +285,9 @@ class BookListView extends ConsumerWidget {
                 Color? borderColor;
                 if (availabilityResponse != null) {
                   if (availabilityResponse.available) {
-                    borderColor = Colors.green;
+                    borderColor = context.semanticColors.success;
                   } else {
-                    borderColor = Colors.red;
+                    borderColor = Theme.of(context).colorScheme.error;
                   }
                 }
 
@@ -351,9 +355,10 @@ class BookListView extends ConsumerWidget {
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withValues(
-                                              alpha: 0.2,
-                                            ),
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .shadow
+                                                .withValues(alpha: 0.2),
                                             blurRadius: 4,
                                             offset: const Offset(0, 2),
                                           ),
@@ -367,14 +372,19 @@ class BookListView extends ConsumerWidget {
                                     Positioned.fill(
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: Colors.black45,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .shadow
+                                              .withValues(alpha: 0.45),
                                           borderRadius: BorderRadius.circular(
                                             8,
                                           ),
                                         ),
-                                        child: const Icon(
+                                        child: Icon(
                                           Icons.check_circle,
-                                          color: Colors.white,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimary,
                                           size: 40,
                                         ),
                                       ),

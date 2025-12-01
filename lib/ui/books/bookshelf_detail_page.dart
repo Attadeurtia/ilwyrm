@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/settings_repository.dart';
 import 'manage_tags_dialog.dart';
 import '../home/availability_provider.dart';
+import '../theme_extensions.dart';
 
 class BookDetailsPage extends ConsumerWidget {
   final int bookId;
@@ -131,7 +132,9 @@ class BookDetailsPage extends ConsumerWidget {
                               : null,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.shadow.withValues(alpha: 0.2),
                               blurRadius: 10,
                               offset: const Offset(0, 5),
                             ),
@@ -232,17 +235,19 @@ class BookDetailsPage extends ConsumerWidget {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.copy,
                                   size: 15,
-                                  color: Colors.grey,
+                                  color: Theme.of(context).colorScheme.outline,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   'ISBN :',
                                   style: Theme.of(context).textTheme.labelLarge
                                       ?.copyWith(
-                                        color: Colors.grey,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.outline,
                                         fontWeight: FontWeight.bold,
                                       ),
                                 ),
@@ -259,7 +264,9 @@ class BookDetailsPage extends ConsumerWidget {
                                 'Ajouté :',
                                 style: Theme.of(context).textTheme.labelLarge
                                     ?.copyWith(
-                                      color: Colors.grey,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outline,
                                       fontWeight: FontWeight.bold,
                                     ),
                               ),
@@ -285,7 +292,7 @@ class BookDetailsPage extends ConsumerWidget {
                 Text(
                   book.reviewContent ?? 'Aucun résumé disponible.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[800],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     height: 1.5,
                   ),
                 ),
@@ -485,7 +492,10 @@ class _BookTagsList extends ConsumerWidget {
       future: database.getTagsForBook(bookId),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Text('Aucun tag.', style: TextStyle(color: Colors.grey));
+          return Text(
+            'Aucun tag.',
+            style: TextStyle(color: Theme.of(context).colorScheme.outline),
+          );
         }
 
         return Wrap(
@@ -720,7 +730,7 @@ class _LibraryAvailabilityWidgetState
                   Icon(
                     response.available ? Icons.check_circle : Icons.cancel,
                     color: response.available
-                        ? Colors.green
+                        ? context.semanticColors.success
                         : Theme.of(context).colorScheme.error,
                   ),
                   const SizedBox(width: 8),
@@ -729,7 +739,7 @@ class _LibraryAvailabilityWidgetState
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: response.available
-                          ? Colors.green
+                          ? context.semanticColors.success
                           : Theme.of(context).colorScheme.error,
                     ),
                   ),
@@ -745,7 +755,9 @@ class _LibraryAvailabilityWidgetState
                     subtitle: Text('${detail.status} - ${detail.callNumber}'),
                     trailing: Icon(
                       detail.available ? Icons.check : Icons.close,
-                      color: detail.available ? Colors.green : Colors.grey,
+                      color: detail.available
+                          ? context.semanticColors.success
+                          : Theme.of(context).colorScheme.outline,
                       size: 16,
                     ),
                   ),

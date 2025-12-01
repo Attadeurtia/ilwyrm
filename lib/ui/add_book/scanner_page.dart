@@ -82,17 +82,19 @@ class _ScannerPageState extends State<ScannerPage> {
             right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.scrim.withValues(alpha: 0.54),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${_scannedIsbns.length} livre(s) scanné(s)',
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  'Scanner le code-barres d\'un livre',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),

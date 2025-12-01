@@ -222,22 +222,28 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
                 height: 200,
                 width: 140,
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                   image: coverImage != null
                       ? DecorationImage(image: coverImage, fit: BoxFit.cover)
                       : null,
                 ),
                 child: coverImage == null
-                    ? const Column(
+                    ? Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
-                          SizedBox(height: 8),
+                          Icon(
+                            Icons.add_a_photo,
+                            size: 40,
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                          const SizedBox(height: 8),
                           Text(
                             'Ajouter une couverture',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
                           ),
                         ],
                       )

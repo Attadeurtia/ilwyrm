@@ -116,13 +116,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                         ),
                         const PopupMenuDivider(),
-                        const PopupMenuItem<String>(
+                        PopupMenuItem<String>(
                           value: 'delete',
                           child: ListTile(
-                            leading: Icon(Icons.delete, color: Colors.red),
+                            leading: Icon(
+                              Icons.delete,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                             title: Text(
                               'Supprimer',
-                              style: TextStyle(color: Colors.red),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
                             ),
                           ),
                         ),

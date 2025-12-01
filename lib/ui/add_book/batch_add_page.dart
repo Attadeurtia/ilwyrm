@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' as drift;
 import '../../data/database.dart';
 import '../../data/book_search_api.dart';
 import '../../data/open_library_api.dart';
+import '../theme_extensions.dart';
 
 class BatchAddPage extends ConsumerStatefulWidget {
   final List<String> isbns;
@@ -116,11 +117,19 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
               children: [
                 if (_failedIsbns.isNotEmpty)
                   Container(
-                    color: Colors.amber.withOpacity(0.2),
                     padding: const EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      color: context.semanticColors.warning.withValues(
+                        alpha: 0.2,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Row(
                       children: [
-                        const Icon(Icons.warning, color: Colors.amber),
+                        Icon(
+                          Icons.warning,
+                          color: context.semanticColors.warning,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
