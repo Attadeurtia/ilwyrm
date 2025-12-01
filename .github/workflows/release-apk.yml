@@ -34,7 +34,7 @@ jobs:
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=app/my-key.keystore
+          storeFile=../app/my-key.keystore
           EOF
 
       # 🧱 Build de l'APK signé
