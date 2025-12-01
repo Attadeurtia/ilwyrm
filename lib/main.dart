@@ -4,7 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'data/database.dart';
-import 'data/seed_data.dart';
+//import 'data/seed_data.dart';
 import 'data/settings_repository.dart';
 import 'ui/home/home_page.dart';
 
@@ -12,7 +12,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final db = AppDatabase();
-  await seedDatabase(db);
+  //await seedDatabase(db);
 
   final prefs = await SharedPreferences.getInstance();
 
