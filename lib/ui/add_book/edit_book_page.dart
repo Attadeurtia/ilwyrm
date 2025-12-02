@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:file_picker/file_picker.dart';
 import '../../data/database.dart';
+import '../../data/repositories/books_repository.dart';
 import '../../data/book_search_api.dart';
+import '../../data/enums.dart';
 
 class EditBookPage extends ConsumerStatefulWidget {
   final ExternalBook? initialBook;
@@ -23,7 +25,7 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
   late TextEditingController _publisherController;
   late TextEditingController _yearController;
   late TextEditingController _pageCountController;
-  String _status = 'to_read'; // Default status
+  BookShelf _status = BookShelf.toRead; // Default status
   String? _localCoverPath;
 
   @override
@@ -45,7 +47,7 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
       _pageCountController = TextEditingController(
         text: widget.existingBook!.pageCount?.toString() ?? '',
       );
-      _status = widget.existingBook!.shelf;
+      _status = BookShelf.fromId(widget.existingBook!.shelf);
       _localCoverPath = widget.existingBook!.coverPath;
     } else {
       _titleController = TextEditingController(
@@ -90,34 +92,34 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
 
   Future<void> _saveBook() async {
     if (_formKey.currentState!.validate()) {
-      final database = ref.read(databaseProvider);
       final int? pageCount = int.tryParse(_pageCountController.text);
       final int? year = int.tryParse(_yearController.text);
 
       if (widget.existingBook != null) {
         // Update existing
-        await (database.update(
-          database.books,
-        )..where((tbl) => tbl.id.equals(widget.existingBook!.id))).write(
-          BooksCompanion(
-            title: drift.Value(_titleController.text),
-            authorText: drift.Value(_authorController.text),
-            publisher: drift.Value(
-              _publisherController.text.isEmpty
-                  ? null
-                  : _publisherController.text,
-            ),
-            publicationYear: drift.Value(year),
-            pageCount: drift.Value(pageCount),
-            shelf: drift.Value(_status),
-            shelfName: drift.Value(_getShelfName(_status)),
-            coverPath: drift.Value(_localCoverPath),
-            coverUrl: widget.initialBook?.coverUrl != null
-                ? drift.Value(widget.initialBook!.coverUrl)
-                : const drift.Value.absent(),
-            dateModified: drift.Value(DateTime.now()),
-          ),
-        );
+        await ref
+            .read(booksRepositoryProvider)
+            .updateBookData(
+              widget.existingBook!.id,
+              BooksCompanion(
+                title: drift.Value(_titleController.text),
+                authorText: drift.Value(_authorController.text),
+                publisher: drift.Value(
+                  _publisherController.text.isEmpty
+                      ? null
+                      : _publisherController.text,
+                ),
+                publicationYear: drift.Value(year),
+                pageCount: drift.Value(pageCount),
+                shelf: drift.Value(_status.id),
+                shelfName: drift.Value(_status.label),
+                coverPath: drift.Value(_localCoverPath),
+                coverUrl: widget.initialBook?.coverUrl != null
+                    ? drift.Value(widget.initialBook!.coverUrl)
+                    : const drift.Value.absent(),
+                dateModified: drift.Value(DateTime.now()),
+              ),
+            );
       } else {
         // Insert new
         final book = BooksCompanion(
@@ -130,8 +132,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           ),
           publicationYear: drift.Value(year),
           pageCount: drift.Value(pageCount),
-          shelf: drift.Value(_status),
-          shelfName: drift.Value(_getShelfName(_status)),
+          shelf: drift.Value(_status.id),
+          shelfName: drift.Value(_status.label),
           openlibraryKey:
               widget.initialBook?.key != null &&
                   widget.initialBook!.source == 'openlibrary'
@@ -156,7 +158,7 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           dateAdded: drift.Value(DateTime.now()),
           dateModified: drift.Value(DateTime.now()),
         );
-        await database.into(database.books).insert(book);
+        await ref.read(booksRepositoryProvider).addBook(book);
       }
 
       if (mounted) {
@@ -171,19 +173,6 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
         );
         Navigator.of(context).pop();
       }
-    }
-  }
-
-  String _getShelfName(String status) {
-    switch (status) {
-      case 'to_read':
-        return 'À lire';
-      case 'reading':
-        return 'En cours';
-      case 'read':
-        return 'Lu';
-      default:
-        return 'À lire';
     }
   }
 
@@ -299,18 +288,16 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
               ),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
+            DropdownButtonFormField<BookShelf>(
               // ignore: deprecated_member_use
               value: _status,
               decoration: const InputDecoration(
                 labelText: 'Statut',
                 border: OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(value: 'to_read', child: Text('À lire')),
-                DropdownMenuItem(value: 'reading', child: Text('En cours')),
-                DropdownMenuItem(value: 'read', child: Text('Lu')),
-              ],
+              items: BookShelf.values.map((shelf) {
+                return DropdownMenuItem(value: shelf, child: Text(shelf.label));
+              }).toList(),
               onChanged: (value) {
                 if (value != null) {
                   setState(() {

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' as drift;
+
 import '../../data/database.dart';
+import '../../data/repositories/books_repository.dart';
 import '../add_book/edit_book_page.dart';
 import '../add_book/search_book_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,6 +11,7 @@ import '../../data/settings_repository.dart';
 import 'manage_tags_dialog.dart';
 import '../home/availability_provider.dart';
 import '../theme_extensions.dart';
+import '../../data/enums.dart';
 
 class BookDetailsPage extends ConsumerWidget {
   final int bookId;
@@ -18,12 +20,10 @@ class BookDetailsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final database = ref.watch(databaseProvider);
+    final repository = ref.watch(booksRepositoryProvider);
 
     return StreamBuilder<Book>(
-      stream: (database.select(
-        database.books,
-      )..where((tbl) => tbl.id.equals(bookId))).watchSingle(),
+      stream: repository.watchBook(bookId),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Scaffold(
@@ -45,12 +45,8 @@ class BookDetailsPage extends ConsumerWidget {
                       : null,
                 ),
                 onPressed: () {
-                  final database = ref.read(databaseProvider);
-                  (database.update(
-                    database.books,
-                  )..where((tbl) => tbl.id.equals(book.id))).write(
-                    BooksCompanion(isFavorite: drift.Value(!book.isFavorite)),
-                  );
+                  final repository = ref.read(booksRepositoryProvider);
+                  repository.toggleFavorite(book.id, !book.isFavorite);
                 },
               ),
               PopupMenuButton(
@@ -81,7 +77,7 @@ class BookDetailsPage extends ConsumerWidget {
                     onTap: () {
                       Future.delayed(const Duration(seconds: 0), () {
                         if (context.mounted) {
-                          database.deleteBook(book.id);
+                          repository.deleteBook(book.id);
                           Navigator.of(
                             context,
                           ).pop(); // Pop the detail page after deleting
@@ -349,63 +345,6 @@ class BookDetailsPage extends ConsumerWidget {
     // Simple formatter, ideally use intl package
     return '${date.day}/${date.month}/${date.year}';
   }
-
-  String _getShelfLabel(String shelf) {
-    switch (shelf) {
-      case 'to_read':
-        return 'À lire';
-      case 'reading':
-        return 'En cours';
-      case 'read':
-        return 'Lu';
-      default:
-        return shelf;
-    }
-  }
-
-  Future<void> _updateStatus(WidgetRef ref, Book book, String newStatus) async {
-    final database = ref.read(databaseProvider);
-    await (database.update(database.books)
-          ..where((tbl) => tbl.id.equals(book.id)))
-        .write(BooksCompanion(shelf: drift.Value(newStatus)));
-  }
-
-  Future<void> _confirmDelete(
-    BuildContext context,
-    WidgetRef ref,
-    Book book,
-  ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Supprimer ce livre ?'),
-        content: Text('Voulez-vous vraiment supprimer "${book.title}" ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      final database = ref.read(databaseProvider);
-      await (database.delete(
-        database.books,
-      )..where((tbl) => tbl.id.equals(book.id))).go();
-      if (context.mounted) {
-        Navigator.pop(context); // Close details page
-      }
-    }
-  }
 }
 
 class _AuthorBooksList extends ConsumerWidget {
@@ -418,18 +357,11 @@ class _AuthorBooksList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (author == null) return const SizedBox();
 
-    final database = ref.watch(databaseProvider);
+    final repository = ref.watch(booksRepositoryProvider);
 
     return FutureBuilder<List<Book>>(
-      future:
-          (database.select(database.books)
-                ..where(
-                  (tbl) =>
-                      tbl.authorText.equals(author!) &
-                      tbl.id.equals(currentBookId).not(),
-                )
-                ..limit(3))
-              .get(),
+      // TODO: Add getBooksByAuthor to repository if needed, or use search
+      future: repository.searchBooks(author!),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Text('Aucun autre livre trouvé.');
@@ -486,10 +418,10 @@ class _BookTagsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final database = ref.watch(databaseProvider);
+    final repository = ref.watch(booksRepositoryProvider);
 
     return FutureBuilder<List<Tag>>(
-      future: database.getTagsForBook(bookId),
+      future: repository.getTagsForBook(bookId),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return Text(
@@ -517,27 +449,6 @@ class _BookTagsList extends ConsumerWidget {
   }
 }
 
-class _StatusButton extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onPressed;
-
-  const _StatusButton({
-    required this.label,
-    required this.isSelected,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => onPressed(),
-    );
-  }
-}
-
 class _ReadingStatusButton extends ConsumerWidget {
   final Book book;
 
@@ -545,22 +456,15 @@ class _ReadingStatusButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final database = ref.read(databaseProvider);
+    final repository = ref.read(booksRepositoryProvider);
 
-    if (book.shelf == 'to_read') {
+    final status = BookShelf.fromId(book.shelf);
+    if (status == BookShelf.toRead) {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
           onPressed: () async {
-            await (database.update(
-              database.books,
-            )..where((tbl) => tbl.id.equals(book.id))).write(
-              BooksCompanion(
-                shelf: const drift.Value('reading'),
-                startDate: drift.Value(DateTime.now()),
-                dateModified: drift.Value(DateTime.now()),
-              ),
-            );
+            await repository.updateStatus(book.id, BookShelf.reading);
           },
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -570,7 +474,7 @@ class _ReadingStatusButton extends ConsumerWidget {
           child: const Text('Commencer', style: TextStyle(fontSize: 18)),
         ),
       );
-    } else if (book.shelf == 'reading') {
+    } else if (status == BookShelf.reading) {
       final days = book.startDate != null
           ? DateTime.now().difference(book.startDate!).inDays
           : 0;
@@ -587,15 +491,7 @@ class _ReadingStatusButton extends ConsumerWidget {
           const SizedBox(height: 8),
           ElevatedButton(
             onPressed: () async {
-              await (database.update(
-                database.books,
-              )..where((tbl) => tbl.id.equals(book.id))).write(
-                BooksCompanion(
-                  shelf: const drift.Value('read'),
-                  finishDate: drift.Value(DateTime.now()),
-                  dateModified: drift.Value(DateTime.now()),
-                ),
-              );
+              await repository.updateStatus(book.id, BookShelf.read);
             },
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -606,7 +502,7 @@ class _ReadingStatusButton extends ConsumerWidget {
           ),
         ],
       );
-    } else if (book.shelf == 'read') {
+    } else if (status == BookShelf.read) {
       String durationText = 'Unknown duration';
       if (book.startDate != null && book.finishDate != null) {
         final days = book.finishDate!.difference(book.startDate!).inDays;

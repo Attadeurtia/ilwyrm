@@ -20,80 +20,68 @@ class AppDatabase extends _$AppDatabase {
   int get schemaVersion => 11;
 
   @override
-  MigrationStrategy get migration {
-    return MigrationStrategy(
-      onCreate: (Migrator m) async {
-        await m.createAll();
-      },
-      onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 2) {
-          // Destructive reset for v1 -> v2
-          for (final table in allTables) {
-            await m.deleteTable(table.actualTableName);
-          }
-          await m.createAll();
-          return;
-        }
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (Migrator m) async {
+      await m.createAll();
+    },
+    onUpgrade: _upgrade,
+  );
 
-        if (from < 4) {
-          try {
-            await m.addColumn(books, books.pageCount);
-          } catch (e) {
-            print('Error adding pageCount column: $e');
-          }
-        }
+  Future<void> _upgrade(Migrator m, int from, int to) async {
+    if (from < 2) {
+      // Destructive reset for v1 -> v2
+      for (final table in allTables) {
+        await m.deleteTable(table.actualTableName);
+      }
+      await m.createAll();
+      return;
+    }
 
-        if (from < 5) {
-          try {
-            await m.addColumn(books, books.coverId);
-          } catch (e) {
-            print('Error adding coverId column: $e');
-          }
-        }
+    if (from < 4) {
+      await _tryAddColumn(m, books, books.pageCount);
+    }
 
-        if (from < 6) {
-          try {
-            await m.addColumn(books, books.currentPage);
-          } catch (e) {
-            print('Error adding currentPage column: $e');
-          }
-        }
+    if (from < 5) {
+      await _tryAddColumn(m, books, books.coverId);
+    }
 
-        if (from < 7) {
-          try {
-            await m.addColumn(books, books.isFavorite);
-          } catch (e) {
-            print('Error adding isFavorite column: $e');
-          }
-        }
+    if (from < 6) {
+      await _tryAddColumn(m, books, books.currentPage);
+    }
 
-        if (from < 8) {
-          try {
-            await m.addColumn(books, books.coverPath);
-          } catch (e) {
-            print('Error adding coverPath column: $e');
-          }
-        }
+    if (from < 7) {
+      await _tryAddColumn(m, books, books.isFavorite);
+    }
 
-        if (from < 9) {
-          try {
-            await m.createTable(tags);
-            await m.createTable(bookTags);
-          } catch (e) {
-            print('Error creating tags tables: $e');
-          }
-        }
+    if (from < 8) {
+      await _tryAddColumn(m, books, books.coverPath);
+    }
 
-        if (from < 11) {
-          try {
-            await m.addColumn(books, books.publisher);
-            await m.addColumn(books, books.publicationYear);
-          } catch (e) {
-            print('Error adding publisher/year columns: $e');
-          }
-        }
-      },
-    );
+    if (from < 9) {
+      try {
+        await m.createTable(tags);
+        await m.createTable(bookTags);
+      } catch (e) {
+        print('Error creating tags tables: $e');
+      }
+    }
+
+    if (from < 11) {
+      await _tryAddColumn(m, books, books.publisher);
+      await _tryAddColumn(m, books, books.publicationYear);
+    }
+  }
+
+  Future<void> _tryAddColumn(
+    Migrator m,
+    TableInfo table,
+    GeneratedColumn column,
+  ) async {
+    try {
+      await m.addColumn(table, column);
+    } catch (e) {
+      print('Error adding column ${column.name}: $e');
+    }
   }
 
   Future<int> deleteBook(int id) {

@@ -5,6 +5,7 @@ import '../add_book/scanner_page.dart';
 import '../add_book/search_book_page.dart';
 import 'filter_bar.dart';
 import '../books/book_list_view.dart';
+
 import 'sort_provider.dart';
 import 'view_provider.dart';
 import '../settings/settings_page.dart';
@@ -12,8 +13,8 @@ import 'local_search_delegate.dart';
 
 import 'tag_filter_provider.dart';
 import 'selection_provider.dart';
-import '../../data/database.dart';
-import 'package:drift/drift.dart' as drift;
+import '../../data/repositories/books_repository.dart';
+import '../../data/enums.dart';
 import '../add_book/edit_book_page.dart';
 import '../../data/settings_repository.dart';
 import 'availability_provider.dart';
@@ -58,10 +59,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                     tooltip: 'Modifier',
                     onPressed: () async {
                       final bookId = selectionState.selectedIds.first;
-                      final database = ref.read(databaseProvider);
-                      final book = await (database.select(
-                        database.books,
-                      )..where((tbl) => tbl.id.equals(bookId))).getSingle();
+                      final repository = ref.read(booksRepositoryProvider);
+                      final book = await repository.getBook(bookId);
 
                       if (context.mounted) {
                         Navigator.push(
@@ -160,8 +159,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                         icon: const Icon(Icons.travel_explore),
                         tooltip: 'Vérifier la disponibilité',
                         onPressed: () async {
-                          final database = ref.read(databaseProvider);
-                          final books = await database.getBooksByTag(
+                          final repository = ref.read(booksRepositoryProvider);
+                          final books = await repository.getBooksByTag(
                             selectedTagId,
                           );
                           ref
@@ -373,19 +372,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
 
     if (result != null) {
-      final database = ref.read(databaseProvider);
-      String shelfName = 'À lire';
-      if (result == 'reading') shelfName = 'En cours';
-      if (result == 'read') shelfName = 'Lu';
+      final repository = ref.read(booksRepositoryProvider);
+      final status = BookShelf.fromId(result);
 
-      await (database.update(
-        database.books,
-      )..where((tbl) => tbl.id.isIn(selectedIds))).write(
-        BooksCompanion(
-          shelf: drift.Value(result),
-          shelfName: drift.Value(shelfName),
-        ),
-      );
+      for (final id in selectedIds) {
+        await repository.updateStatus(id, status);
+      }
 
       ref.read(selectionProvider.notifier).clear();
 
@@ -401,10 +393,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     BuildContext context,
     Set<int> selectedIds,
   ) async {
-    final database = ref.read(databaseProvider);
-    await (database.update(database.books)
-          ..where((tbl) => tbl.id.isIn(selectedIds)))
-        .write(const BooksCompanion(isFavorite: drift.Value(true)));
+    final repository = ref.read(booksRepositoryProvider);
+    for (final id in selectedIds) {
+      await repository.toggleFavorite(id, true);
+    }
 
     ref.read(selectionProvider.notifier).clear();
 
@@ -421,8 +413,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     BuildContext context,
     Set<int> selectedIds,
   ) async {
-    final database = ref.read(databaseProvider);
-    final allTags = await database.getAllTags();
+    final repository = ref.read(booksRepositoryProvider);
+    final allTags = await repository.getAllTags();
     final selectedTags = <int>{};
 
     if (!mounted) return;
@@ -472,7 +464,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   onPressed: () async {
                     for (final bookId in selectedIds) {
                       for (final tagId in selectedTags) {
-                        await database.addTagToBook(bookId, tagId);
+                        await repository.addTagToBook(bookId, tagId);
                       }
                     }
                     if (context.mounted) Navigator.pop(context);
@@ -522,10 +514,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
 
     if (confirmed == true) {
-      final database = ref.read(databaseProvider);
-      await (database.delete(
-        database.books,
-      )..where((tbl) => tbl.id.isIn(selectedIds))).go();
+      final repository = ref.read(booksRepositoryProvider);
+      for (final id in selectedIds) {
+        await repository.deleteBook(id);
+      }
 
       ref.read(selectionProvider.notifier).clear();
 

@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum SortOption { dateAdded, title, author }
+import '../../data/enums.dart';
 
 class SortNotifier extends Notifier<SortOption> {
   @override

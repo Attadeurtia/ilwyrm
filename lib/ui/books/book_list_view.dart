@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/database.dart';
+import '../../data/repositories/books_repository.dart';
 import 'bookshelf_detail_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../home/sort_provider.dart';
+import '../../data/enums.dart';
 import '../home/view_provider.dart';
 import '../home/filter_provider.dart';
-import 'package:drift/drift.dart' as drift;
+import '../../data/database.dart';
+import '../../data/enums.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../home/selection_provider.dart';
 import '../home/availability_provider.dart';
@@ -20,7 +22,7 @@ class BookListView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final database = ref.watch(databaseProvider);
+    final repository = ref.watch(booksRepositoryProvider);
 
     // Map tab status to database shelf values
     String dbStatus;
@@ -43,7 +45,7 @@ class BookListView extends ConsumerWidget {
       // If filtering by tag, we first get books by tag, then filter by status/sort in memory
       // (Drift doesn't easily support complex joins + where + sort in a single fluent stream without custom SQL)
       // For simplicity and performance on small datasets, this is fine.
-      bookStream = database.getBooksByTag(tagId!).asStream().map((books) {
+      bookStream = repository.getBooksByTag(tagId!).asStream().map((books) {
         var filtered = books.where((b) {
           final statusFilter = b.shelf == dbStatus;
           if (filters.contains('Favoris')) {
@@ -67,37 +69,11 @@ class BookListView extends ConsumerWidget {
       });
     } else {
       // Standard stream
-      bookStream =
-          (database.select(database.books)
-                ..where((tbl) {
-                  final statusFilter = tbl.shelf.equals(dbStatus);
-                  if (filters.contains('Favoris')) {
-                    return statusFilter & tbl.isFavorite.equals(true);
-                  }
-                  return statusFilter;
-                })
-                ..orderBy([
-                  (t) {
-                    switch (sortOption) {
-                      case SortOption.title:
-                        return drift.OrderingTerm(
-                          expression: t.title,
-                          mode: drift.OrderingMode.asc,
-                        );
-                      case SortOption.author:
-                        return drift.OrderingTerm(
-                          expression: t.authorText,
-                          mode: drift.OrderingMode.asc,
-                        );
-                      case SortOption.dateAdded:
-                        return drift.OrderingTerm(
-                          expression: t.dateAdded,
-                          mode: drift.OrderingMode.desc,
-                        );
-                    }
-                  },
-                ]))
-              .watch();
+      bookStream = repository.watchBooks(
+        status: dbStatus,
+        sortOption: sortOption,
+        filters: filters.toList(),
+      );
     }
 
     return StreamBuilder<List<Book>>(
