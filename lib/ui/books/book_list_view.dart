@@ -8,7 +8,6 @@ import '../../data/enums.dart';
 import '../home/view_provider.dart';
 import '../home/filter_provider.dart';
 import '../../data/database.dart';
-import '../../data/enums.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../home/selection_provider.dart';
 import '../home/availability_provider.dart';
