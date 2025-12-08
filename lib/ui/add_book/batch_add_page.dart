@@ -4,6 +4,8 @@ import 'package:drift/drift.dart' as drift;
 import '../../data/database.dart';
 import '../../data/book_search_api.dart';
 import '../../data/open_library_api.dart';
+import '../../data/google_books_api.dart'; // Import Google Books API
+import '../../data/inventaire_api.dart'; // Import Inventaire API
 import '../theme_extensions.dart';
 
 class BatchAddPage extends ConsumerStatefulWidget {
@@ -16,8 +18,16 @@ class BatchAddPage extends ConsumerStatefulWidget {
 }
 
 class _BatchAddPageState extends ConsumerState<BatchAddPage> {
-  final OpenLibraryApi _api = OpenLibraryApi();
-  final List<ExternalBook> _books = [];
+  final OpenLibraryApi _openLibraryApi = OpenLibraryApi();
+  final GoogleBooksApi _googleBooksApi = GoogleBooksApi();
+  final InventaireApi _inventaireApi = InventaireApi();
+
+  /// Map of ISBN -> List of found books from all sources
+  final Map<String, List<ExternalBook>> _candidates = {};
+
+  /// Map of ISBN -> Currently selected book
+  final Map<String, ExternalBook> _selectedBooks = {};
+
   final Set<String> _failedIsbns = {};
   bool _isLoading = true;
 
@@ -29,12 +39,36 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
 
   Future<void> _fetchBooks() async {
     for (final isbn in widget.isbns) {
+      if (_candidates.containsKey(isbn)) continue;
+
       try {
-        final results = await _api.searchBooks(isbn);
-        if (results.isNotEmpty) {
-          // Prefer exact ISBN match if possible, otherwise take the first result
-          // OpenLibrary search might return multiple results for an ISBN query
-          _books.add(results.first);
+        final List<ExternalBook> allResults = [];
+
+        // Launch searches in parallel
+        final results = await Future.wait([
+          _openLibraryApi
+              .searchBooks(isbn)
+              .then((l) => l, onError: (_) => <ExternalBook>[]),
+          _googleBooksApi
+              .searchBooks(isbn)
+              .then((l) => l, onError: (_) => <ExternalBook>[]),
+          _inventaireApi
+              .searchBooks(isbn)
+              .then((l) => l, onError: (_) => <ExternalBook>[]),
+        ]);
+
+        for (final list in results) {
+          allResults.addAll(list);
+        }
+
+        if (allResults.isNotEmpty) {
+          _candidates[isbn] = allResults;
+          // Heuristic: Prefer OpenLibrary exact match, else first result
+          final openLibraryMatch = allResults.firstWhere(
+            (b) => b.source == 'openlibrary',
+            orElse: () => allResults.first,
+          );
+          _selectedBooks[isbn] = openLibraryMatch;
         } else {
           _failedIsbns.add(isbn);
         }
@@ -53,10 +87,17 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
     final database = ref.read(databaseProvider);
     int addedCount = 0;
 
-    for (final book in _books) {
+    for (final isbn in _selectedBooks.keys) {
+      final book = _selectedBooks[isbn]!;
       final companion = BooksCompanion(
         title: drift.Value(book.title),
         authorText: drift.Value(book.authorText),
+        publisher: book.publisher != null
+            ? drift.Value(book.publisher)
+            : const drift.Value.absent(),
+        publicationYear: book.firstPublishYear != null
+            ? drift.Value(book.firstPublishYear)
+            : const drift.Value.absent(),
         pageCount: drift.Value(book.numberOfPages),
         shelf: const drift.Value('to_read'),
         shelfName: const drift.Value('À lire'),
@@ -66,7 +107,9 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
         isbn13: book.isbns?.isNotEmpty == true
             ? drift.Value(book.isbns!.first)
             : const drift.Value.absent(),
-        coverId: const drift.Value.absent(), // See EditBookPage note
+        coverUrl: book.coverUrl != null
+            ? drift.Value(book.coverUrl)
+            : const drift.Value.absent(),
         dateAdded: drift.Value(DateTime.now()),
         dateModified: drift.Value(DateTime.now()),
       );
@@ -82,19 +125,73 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
     }
   }
 
-  void _removeBook(int index) {
+  void _removeBook(String isbn) {
     setState(() {
-      _books.removeAt(index);
+      _selectedBooks.remove(isbn);
+      _candidates.remove(isbn);
     });
+  }
+
+  Future<void> _showSelectionDialog(String isbn) async {
+    final candidates = _candidates[isbn];
+    if (candidates == null || candidates.isEmpty) return;
+
+    final selected = await showModalBottomSheet<ExternalBook>(
+      context: context,
+      builder: (context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Choisir une source pour $isbn',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: candidates.length,
+                itemBuilder: (context, index) {
+                  final book = candidates[index];
+                  return ListTile(
+                    leading: book.coverUrl != null
+                        ? Image.network(
+                            book.coverUrl!,
+                            width: 40,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.book),
+                          )
+                        : const Icon(Icons.book),
+                    title: Text(book.title),
+                    subtitle: Text('${book.authorText} • ${book.source}'),
+                    onTap: () => Navigator.pop(context, book),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selected != null) {
+      setState(() {
+        _selectedBooks[isbn] = selected;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bookList = _selectedBooks.entries.toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Confirmer l\'ajout'),
         actions: [
-          if (!_isLoading && _books.isNotEmpty)
+          if (!_isLoading && _selectedBooks.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.check),
               onPressed: _addAll,
@@ -109,7 +206,9 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
-                  Text('Récupération des informations...'),
+                  Text(
+                    'Recherche sur OpenLibrary, Google Books et Inventaire...',
+                  ),
                 ],
               ),
             )
@@ -141,9 +240,13 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                   ),
                 Expanded(
                   child: ListView.builder(
-                    itemCount: _books.length,
+                    itemCount: bookList.length,
                     itemBuilder: (context, index) {
-                      final book = _books[index];
+                      final entry = bookList[index];
+                      final isbn = entry.key;
+                      final book = entry.value;
+                      final candidateCount = _candidates[isbn]?.length ?? 0;
+
                       return ListTile(
                         leading: book.coverUrl != null
                             ? Image.network(
@@ -155,11 +258,32 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                               )
                             : const Icon(Icons.book, size: 50),
                         title: Text(book.title),
-                        subtitle: Text(book.authorText),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(book.authorText),
+                            if (candidateCount > 1)
+                              Text(
+                                'Source: ${book.source} (Tap pour changer)',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontSize: 12,
+                                ),
+                              )
+                            else
+                              Text(
+                                'Source: ${book.source}',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                          ],
+                        ),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete),
-                          onPressed: () => _removeBook(index),
+                          onPressed: () => _removeBook(isbn),
                         ),
+                        onTap: candidateCount > 1
+                            ? () => _showSelectionDialog(isbn)
+                            : null,
                       );
                     },
                   ),
@@ -167,9 +291,9 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: ElevatedButton.icon(
-                    onPressed: _books.isNotEmpty ? _addAll : null,
+                    onPressed: _selectedBooks.isNotEmpty ? _addAll : null,
                     icon: const Icon(Icons.playlist_add),
-                    label: Text('Ajouter ${_books.length} livres'),
+                    label: Text('Ajouter ${_selectedBooks.length} livres'),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(50),
                     ),
