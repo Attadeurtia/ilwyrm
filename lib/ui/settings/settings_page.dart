@@ -3,10 +3,13 @@ import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../data/database.dart';
+import '../../data/open_library_api.dart'; // Import for OpenLibraryApi
 import '../../data/settings_repository.dart';
 import '../theme_extensions.dart';
 
@@ -54,13 +57,50 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
         int importedCount = 0;
         final db = ref.read(databaseProvider);
+        final openLibraryApi = OpenLibraryApi();
 
-        for (final row in dataRows) {
+        for (int i = 0; i < dataRows.length; i++) {
+          final row = dataRows[i];
           if (row.length != headers.length) continue;
 
+          // Update progress (optional, could be added to UI state if desired)
+          // debugPrint('Importing book ${i + 1}/${dataRows.length}');
+
           final map = <String, dynamic>{};
-          for (int i = 0; i < headers.length; i++) {
-            map[headers[i]] = row[i];
+          for (int j = 0; j < headers.length; j++) {
+            map[headers[j]] = row[j];
+          }
+
+          String? coverUrl;
+          // Try to fetch cover if not present (CSV usually doesn't have it)
+          final isbn13 = map['isbn_13']?.toString();
+          final isbn10 = map['isbn_10']?.toString();
+          final title = map['title']?.toString();
+          final author = map['author_text']?.toString();
+
+          // Prioritize ISBN search
+          final query =
+              isbn13 ?? isbn10 ?? (title != null ? '$title $author' : null);
+
+          if (query != null) {
+            try {
+              // Basic rate limiting/niceness
+              await Future.delayed(const Duration(milliseconds: 100));
+              final results = await openLibraryApi.searchBooks(query);
+              if (results.isNotEmpty) {
+                // Prefer the one with a cover
+                final match = results.firstWhere(
+                  (b) => b.coverUrl != null,
+                  orElse: () => results.first,
+                );
+                if (match.coverUrl != null) {
+                  coverUrl = match.coverUrl;
+                }
+              }
+            } catch (e) {
+              // precise error handling not needed here, just skip cover
+              print('Error fetching cover for $query: $e');
+            }
           }
 
           // Map CSV fields to BookCompanion
@@ -99,6 +139,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
             shelfName: drift.Value(map['shelf_name']?.toString()),
             shelfDate: drift.Value(_parseDate(map['shelf_date']?.toString())),
+            coverUrl: coverUrl != null
+                ? drift.Value(coverUrl)
+                : const drift.Value.absent(),
           );
 
           try {
@@ -296,14 +339,62 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       applicationLegalese: '© 2025 Ilwyrm',
                       children: [
                         const SizedBox(height: 16),
-                        const Text(
-                          'Ilwyrm est une application de gestion de bibliothèque personnelle open-source développée par Attadeurtia (https://github.com/attadeurtia).',
+                        RichText(
                           textAlign: TextAlign.center,
+                          text: TextSpan(
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            children: [
+                              const TextSpan(
+                                text:
+                                    'Ilwyrm est une application de gestion de bibliothèque personnelle open-source développée par ',
+                              ),
+                              TextSpan(
+                                text: 'Attadeurtia',
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  decoration: TextDecoration.underline,
+                                ),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = () async {
+                                    final url = Uri.parse(
+                                      'https://github.com/attadeurtia',
+                                    );
+                                    if (await canLaunchUrl(url)) {
+                                      await launchUrl(url);
+                                    }
+                                  },
+                              ),
+                              const TextSpan(text: '.'),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Code source disponible sur GitHub : https://github.com/attadeurtia/ilwyrm',
+                        RichText(
                           textAlign: TextAlign.center,
+                          text: TextSpan(
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            children: [
+                              const TextSpan(
+                                text: 'Code source disponible sur GitHub : ',
+                              ),
+                              TextSpan(
+                                text: 'https://github.com/attadeurtia/ilwyrm',
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  decoration: TextDecoration.underline,
+                                ),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = () async {
+                                    final url = Uri.parse(
+                                      'https://github.com/attadeurtia/ilwyrm',
+                                    );
+                                    if (await canLaunchUrl(url)) {
+                                      await launchUrl(url);
+                                    }
+                                  },
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     );
