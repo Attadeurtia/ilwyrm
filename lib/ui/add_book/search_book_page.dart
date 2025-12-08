@@ -10,8 +10,13 @@ import '../../data/database.dart';
 
 class SearchBookPage extends ConsumerStatefulWidget {
   final String? initialQuery;
+  final bool isAuthorSearch;
 
-  const SearchBookPage({super.key, this.initialQuery});
+  const SearchBookPage({
+    super.key,
+    this.initialQuery,
+    this.isAuthorSearch = false,
+  });
 
   @override
   ConsumerState<SearchBookPage> createState() => _SearchBookPageState();
@@ -82,7 +87,17 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
     });
 
     try {
-      final books = await _apis[source]!.searchBooks(query);
+      String effectiveQuery = query;
+      if (widget.isAuthorSearch) {
+        if (source == 'OpenLibrary') {
+          effectiveQuery = 'author:$query';
+        } else if (source == 'Google Books') {
+          effectiveQuery = 'inauthor:$query';
+        }
+        // Inventaire doesn't strictly need a prefix, regular search usually finds authors too
+      }
+
+      final books = await _apis[source]!.searchBooks(effectiveQuery);
       if (mounted) {
         setState(() {
           _results[source] = books;

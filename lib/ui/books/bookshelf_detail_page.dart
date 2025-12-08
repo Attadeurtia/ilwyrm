@@ -194,6 +194,7 @@ class BookDetailsPage extends ConsumerWidget {
                                             builder: (context) =>
                                                 SearchBookPage(
                                                   initialQuery: author,
+                                                  isAuthorSearch: true,
                                                 ),
                                           ),
                                         );
