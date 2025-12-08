@@ -10,8 +10,11 @@ import 'data/settings_repository.dart';
 import 'ui/home/home_page.dart';
 import 'ui/theme_extensions.dart';
 
+import 'package:intl/date_symbol_data_local.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('fr_FR', null);
 
   final db = AppDatabase();
   //await seedDatabase(db);

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import '../../data/database.dart';
 import '../../data/repositories/books_repository.dart';
 import '../../data/book_search_api.dart';
@@ -27,6 +28,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
   late TextEditingController _pageCountController;
   BookShelf _status = BookShelf.toRead; // Default status
   String? _localCoverPath;
+  DateTime? _startDate;
+  DateTime? _finishDate;
 
   @override
   void initState() {
@@ -49,6 +52,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
       );
       _status = BookShelf.fromId(widget.existingBook!.shelf);
       _localCoverPath = widget.existingBook!.coverPath;
+      _startDate = widget.existingBook!.startDate;
+      _finishDate = widget.existingBook!.finishDate;
     } else {
       _titleController = TextEditingController(
         text: widget.initialBook?.title ?? '',
@@ -90,6 +95,26 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
     }
   }
 
+  Future<void> _selectDate(BuildContext context, bool isStart) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: isStart
+          ? (_startDate ?? DateTime.now())
+          : (_finishDate ?? DateTime.now()),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startDate = picked;
+        } else {
+          _finishDate = picked;
+        }
+      });
+    }
+  }
+
   Future<void> _saveBook() async {
     if (_formKey.currentState!.validate()) {
       final int? pageCount = int.tryParse(_pageCountController.text);
@@ -113,6 +138,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
                 pageCount: drift.Value(pageCount),
                 shelf: drift.Value(_status.id),
                 shelfName: drift.Value(_status.label),
+                startDate: drift.Value(_startDate),
+                finishDate: drift.Value(_finishDate),
                 coverPath: drift.Value(_localCoverPath),
                 coverUrl: widget.initialBook?.coverUrl != null
                     ? drift.Value(widget.initialBook!.coverUrl)
@@ -134,6 +161,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           pageCount: drift.Value(pageCount),
           shelf: drift.Value(_status.id),
           shelfName: drift.Value(_status.label),
+          startDate: drift.Value(_startDate),
+          finishDate: drift.Value(_finishDate),
           openlibraryKey:
               widget.initialBook?.key != null &&
                   widget.initialBook!.source == 'openlibrary'
@@ -305,6 +334,46 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
                   });
                 }
               },
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('Date de début'),
+              subtitle: Text(
+                _startDate != null
+                    ? DateFormat.yMMMd('fr_FR').format(_startDate!)
+                    : 'Non défini',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: () => _selectDate(context, true),
+              tileColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('Date de fin'),
+              subtitle: Text(
+                _finishDate != null
+                    ? DateFormat.yMMMd('fr_FR').format(_finishDate!)
+                    : 'Non défini',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: () => _selectDate(context, false),
+              tileColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                ),
+              ),
             ),
           ],
         ),
