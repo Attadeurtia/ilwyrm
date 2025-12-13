@@ -45,13 +45,13 @@ flutter run
 
 - [ ] export file / import file
 - [ ] ajout d'animations et de transitions
-- [ ] faire la béta
+- [x] faire la béta
 - [x] ajout de dossier
 - [ ] ajout du multilangage
 - [ ] interface pour PC
 - [ ] ajout d'une page de stat
 - [x] ajout d'un about
 - [x] ajout du logo
-- [ ] ajout de la selection multiple dans home
+- [x] ajout de la selection multiple dans home
 - [x] ajout rapide dans le search
-- [ ] revoir l'UI des tags
+- [x] revoir l'UI des tags
