@@ -1,14 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SelectedTagNotifier extends Notifier<int?> {
+class SelectedTagNotifier extends Notifier<Set<int>> {
   @override
-  int? build() => null;
+  Set<int> build() => {};
 
-  void set(int? tagId) {
-    state = tagId;
+  void toggle(int tagId) {
+    if (state.contains(tagId)) {
+      state = {...state}..remove(tagId);
+    } else {
+      state = {...state, tagId};
+    }
+  }
+
+  void clear() {
+    state = {};
   }
 }
 
-final selectedTagProvider = NotifierProvider<SelectedTagNotifier, int?>(
+final selectedTagProvider = NotifierProvider<SelectedTagNotifier, Set<int>>(
   SelectedTagNotifier.new,
 );
