@@ -123,7 +123,7 @@ class BookDetailsPage extends ConsumerWidget {
                                           'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
                                         ),
                                   fit: BoxFit.cover,
-                                  onError: (_, __) {},
+                                  onError: (e, s) {},
                                 )
                               : null,
                           boxShadow: [
@@ -307,7 +307,13 @@ class BookDetailsPage extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Tags', style: Theme.of(context).textTheme.titleLarge),
+                    Flexible(
+                      child: Text(
+                        'Tags',
+                        style: Theme.of(context).textTheme.titleLarge,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
                       onPressed: () {
@@ -389,7 +395,7 @@ class _AuthorBooksList extends ConsumerWidget {
                             : const AssetImage('assets/placeholder_book.png')
                                   as ImageProvider,
                         fit: BoxFit.cover,
-                        onError: (_, __) {},
+                        onError: (e, s) {},
                       ),
                     ),
                   ),
@@ -591,11 +597,14 @@ class _LibraryAvailabilityWidgetState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Disponibilité en bibliothèque',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            Flexible(
+              child: Text(
+                'Disponibilité en bibliothèque',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             if (response != null)
               IconButton(

@@ -89,7 +89,7 @@ class LocalSearchDelegate extends SearchDelegate<Book?> {
                         : const AssetImage('assets/placeholder_book.png')
                               as ImageProvider,
                     fit: BoxFit.cover,
-                    onError: (_, __) {},
+                    onError: (e, s) {},
                   ),
                 ),
               ),

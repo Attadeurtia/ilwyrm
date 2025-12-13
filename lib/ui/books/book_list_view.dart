@@ -179,7 +179,7 @@ class BookListView extends ConsumerWidget {
                                                 )
                                                 as ImageProvider,
                                       fit: BoxFit.cover,
-                                      onError: (_, __) {},
+                                      onError: (e, s) {},
                                     ),
                                   ),
                                 ),
@@ -326,7 +326,7 @@ class BookListView extends ConsumerWidget {
                                                     )
                                                     as ImageProvider,
                                           fit: BoxFit.cover,
-                                          onError: (_, __) {},
+                                          onError: (e, s) {},
                                         ),
                                         boxShadow: [
                                           BoxShadow(

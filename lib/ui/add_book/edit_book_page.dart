@@ -347,11 +347,13 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
               onTap: () => _selectDate(context, true),
               tileColor: Theme.of(
                 context,
-              ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -367,11 +369,13 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
               onTap: () => _selectDate(context, false),
               tileColor: Theme.of(
                 context,
-              ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withValues(alpha: 0.5),
                 ),
               ),
             ),

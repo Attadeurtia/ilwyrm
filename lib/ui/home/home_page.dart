@@ -381,7 +381,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       ref.read(selectionProvider.notifier).clear();
 
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${selectedIds.length} livre(s) mis à jour')),
         );
@@ -400,7 +400,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     ref.read(selectionProvider.notifier).clear();
 
-    if (mounted) {
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${selectedIds.length} livre(s) ajoutés aux favoris'),
@@ -417,7 +417,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final allTags = await repository.getAllTags();
     final selectedTags = <int>{};
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     await showDialog(
       context: context,
@@ -480,7 +480,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     ref.read(selectionProvider.notifier).clear();
 
-    if (mounted) {
+    if (context.mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Tags ajoutés !')));
@@ -521,7 +521,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       ref.read(selectionProvider.notifier).clear();
 
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${selectedIds.length} livre(s) supprimé(s)')),
         );
