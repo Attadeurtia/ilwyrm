@@ -55,3 +55,4 @@ flutter run
 - [x] ajout de la selection multiple dans home
 - [x] ajout rapide dans le search
 - [x] revoir l'UI des tags
+- [ ] Mettre un scan de cover avce reconnaissance de characteres
