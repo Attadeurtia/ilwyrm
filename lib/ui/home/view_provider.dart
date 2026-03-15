@@ -1,29 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/settings_repository.dart';
 
 enum ViewOption { list, grid, gridWithDetails }
 
+const _kViewPrefKey = 'home_view_option';
+
 class ViewNotifier extends Notifier<ViewOption> {
+  static const _values = ViewOption.values;
+
+  SharedPreferences get _prefs => ref.read(sharedPreferencesProvider);
+
   @override
   ViewOption build() {
-    return ViewOption.list;
+    final prefs = ref.watch(sharedPreferencesProvider);
+    final saved = prefs.getString(_kViewPrefKey);
+    return _values.firstWhere(
+      (v) => v.name == saved,
+      orElse: () => ViewOption.list,
+    );
   }
 
   void setView(ViewOption option) {
     state = option;
+    _prefs.setString(_kViewPrefKey, option.name);
   }
 
   void toggle() {
-    switch (state) {
-      case ViewOption.list:
-        state = ViewOption.grid;
-        break;
-      case ViewOption.grid:
-        state = ViewOption.gridWithDetails;
-        break;
-      case ViewOption.gridWithDetails:
-        state = ViewOption.list;
-        break;
-    }
+    final next = _values[(_values.indexOf(state) + 1) % _values.length];
+    setView(next);
   }
 }
 
