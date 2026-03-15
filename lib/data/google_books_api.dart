@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'book_search_api.dart';
 
@@ -7,8 +8,10 @@ class GoogleBooksApi implements BookSearchApi {
 
   @override
   Future<List<ExternalBook>> searchBooks(String query) async {
+    final apiKey = dotenv.maybeGet('GOOGLE_BOOKS_API_KEY');
+    final keyParam = (apiKey != null && apiKey.isNotEmpty) ? '&key=$apiKey' : '';
     final url = Uri.parse(
-      '$_baseUrl/volumes?q=${Uri.encodeComponent(query)}&maxResults=20',
+      '$_baseUrl/volumes?q=${Uri.encodeComponent(query)}&maxResults=20$keyParam',
     );
 
     final response = await http.get(url);

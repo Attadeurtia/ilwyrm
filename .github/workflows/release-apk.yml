@@ -37,6 +37,11 @@ jobs:
           storeFile=../app/my-key.keystore
           EOF
 
+      # 🔑 Générer le fichier .env avec la clé API Google Books
+      - name: Create .env file
+        run: |
+          echo "GOOGLE_BOOKS_API_KEY=${{ secrets.GOOGLE_BOOKS_API_KEY }}" > .env
+
       # 🧱 Build de l'APK signé
       - name: Build Release APK
         run: flutter build apk --release
