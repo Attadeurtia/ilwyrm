@@ -62,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(tags);
         await m.createTable(bookTags);
       } catch (e) {
-        print('Error creating tags tables: $e');
+        // Ignore errors
       }
     }
 
@@ -80,7 +80,7 @@ class AppDatabase extends _$AppDatabase {
     try {
       await m.addColumn(table, column);
     } catch (e) {
-      print('Error adding column ${column.name}: $e');
+      // Ignore errors for existing columns
     }
   }
 

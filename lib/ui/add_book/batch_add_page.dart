@@ -160,8 +160,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                             book.coverUrl!,
                             width: 40,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.book),
+                            errorBuilder: (c, e, s) => const Icon(Icons.book),
                           )
                         : const Icon(Icons.book),
                     title: Text(book.title),

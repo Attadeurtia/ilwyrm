@@ -42,14 +42,12 @@ class FilterBar extends ConsumerWidget {
               }
 
               final tag = tags[index - 1];
-              final isSelected = selectedTagId == tag.id;
-              return ChoiceChip(
+              final isSelected = selectedTagId.contains(tag.id);
+              return FilterChip(
                 label: Text(tag.name),
                 selected: isSelected,
                 onSelected: (selected) {
-                  ref
-                      .read(selectedTagProvider.notifier)
-                      .set(selected ? tag.id : null);
+                  ref.read(selectedTagProvider.notifier).toggle(tag.id);
                 },
               );
             },

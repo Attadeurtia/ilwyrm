@@ -123,7 +123,7 @@ class BookDetailsPage extends ConsumerWidget {
                                           'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
                                         ),
                                   fit: BoxFit.cover,
-                                  onError: (_, __) {},
+                                  onError: (e, s) {},
                                 )
                               : null,
                           boxShadow: [
@@ -307,7 +307,13 @@ class BookDetailsPage extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Tags', style: Theme.of(context).textTheme.titleLarge),
+                    Flexible(
+                      child: Text(
+                        'Tags',
+                        style: Theme.of(context).textTheme.titleLarge,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
                       onPressed: () {
@@ -389,7 +395,7 @@ class _AuthorBooksList extends ConsumerWidget {
                             : const AssetImage('assets/placeholder_book.png')
                                   as ImageProvider,
                         fit: BoxFit.cover,
-                        onError: (_, __) {},
+                        onError: (e, s) {},
                       ),
                     ),
                   ),
@@ -412,21 +418,37 @@ class _AuthorBooksList extends ConsumerWidget {
   }
 }
 
-class _BookTagsList extends ConsumerWidget {
+class _BookTagsList extends ConsumerStatefulWidget {
   final int bookId;
 
   const _BookTagsList({required this.bookId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BookTagsList> createState() => _BookTagsListState();
+}
+
+class _BookTagsListState extends ConsumerState<_BookTagsList> {
+  @override
+  Widget build(BuildContext context) {
     final repository = ref.watch(booksRepositoryProvider);
 
-    return FutureBuilder<List<Tag>>(
-      future: repository.getTagsForBook(bookId),
+    return FutureBuilder<(List<Tag>, List<Tag>)>(
+      future: Future.wait([
+        repository.getAllTags(),
+        repository.getTagsForBook(widget.bookId),
+      ]).then((values) => (values[0], values[1])),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final allTags = snapshot.data!.$1;
+        final bookTags = snapshot.data!.$2;
+        final bookTagIds = bookTags.map((t) => t.id).toSet();
+
+        if (allTags.isEmpty) {
           return Text(
-            'Aucun tag.',
+            'Aucun tag disponible.',
             style: TextStyle(color: Theme.of(context).colorScheme.outline),
           );
         }
@@ -434,16 +456,21 @@ class _BookTagsList extends ConsumerWidget {
         return Wrap(
           spacing: 8,
           runSpacing: 4,
-          children: snapshot.data!
-              .map(
-                (tag) => Chip(
-                  label: Text(tag.name),
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
-                ),
-              )
-              .toList(),
+          children: allTags.map((tag) {
+            final isSelected = bookTagIds.contains(tag.id);
+            return FilterChip(
+              label: Text(tag.name),
+              selected: isSelected,
+              onSelected: (selected) async {
+                if (selected) {
+                  await repository.addTagToBook(widget.bookId, tag.id);
+                } else {
+                  await repository.removeTagFromBook(widget.bookId, tag.id);
+                }
+                setState(() {});
+              },
+            );
+          }).toList(),
         );
       },
     );
@@ -591,11 +618,14 @@ class _LibraryAvailabilityWidgetState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Disponibilité en bibliothèque',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            Flexible(
+              child: Text(
+                'Disponibilité en bibliothèque',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             if (response != null)
               IconButton(

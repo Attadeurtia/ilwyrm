@@ -15,9 +15,9 @@ import '../theme_extensions.dart';
 
 class BookListView extends ConsumerWidget {
   final String status;
-  final int? tagId;
+  final Set<int> tagIds;
 
-  const BookListView({super.key, required this.status, this.tagId});
+  const BookListView({super.key, required this.status, required this.tagIds});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,11 +40,13 @@ class BookListView extends ConsumerWidget {
 
     Stream<List<Book>> bookStream;
 
-    if (tagId != null) {
+    if (tagIds.isNotEmpty) {
       // If filtering by tag, we first get books by tag, then filter by status/sort in memory
       // (Drift doesn't easily support complex joins + where + sort in a single fluent stream without custom SQL)
       // For simplicity and performance on small datasets, this is fine.
-      bookStream = repository.getBooksByTag(tagId!).asStream().map((books) {
+      bookStream = repository.getBooksByTags(tagIds.toList()).asStream().map((
+        books,
+      ) {
         var filtered = books.where((b) {
           final statusFilter = b.shelf == dbStatus;
           if (filters.contains('Favoris')) {
@@ -117,7 +119,7 @@ class BookListView extends ConsumerWidget {
               itemCount: books.length,
               itemBuilder: (context, index) {
                 final book = books[index];
-                final availabilityResponse = tagId != null
+                final availabilityResponse = tagIds.isNotEmpty
                     ? availabilityState[book.id]
                     : null;
                 IconData? statusIcon;
@@ -179,7 +181,7 @@ class BookListView extends ConsumerWidget {
                                                 )
                                                 as ImageProvider,
                                       fit: BoxFit.cover,
-                                      onError: (_, __) {},
+                                      onError: (e, s) {},
                                     ),
                                   ),
                                 ),
@@ -254,7 +256,7 @@ class BookListView extends ConsumerWidget {
               itemCount: books.length,
               itemBuilder: (context, index) {
                 final book = books[index];
-                final availabilityResponse = tagId != null
+                final availabilityResponse = tagIds.isNotEmpty
                     ? availabilityState[book.id]
                     : null;
                 Color? borderColor;
@@ -326,7 +328,7 @@ class BookListView extends ConsumerWidget {
                                                     )
                                                     as ImageProvider,
                                           fit: BoxFit.cover,
-                                          onError: (_, __) {},
+                                          onError: (e, s) {},
                                         ),
                                         boxShadow: [
                                           BoxShadow(

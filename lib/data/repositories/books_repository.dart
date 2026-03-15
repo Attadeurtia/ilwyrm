@@ -108,6 +108,36 @@ class BooksRepository {
   Future<List<Tag>> getAllTags() => _db.getAllTags();
   Future<List<Tag>> getTagsForBook(int bookId) => _db.getTagsForBook(bookId);
   Future<List<Book>> getBooksByTag(int tagId) => _db.getBooksByTag(tagId);
+
+  Future<List<Book>> getBooksByTags(List<int> tagIds) async {
+    if (tagIds.isEmpty) return [];
+
+    // Custom SQL for AND logic (Intersection) to ensure HAVING support
+    final placeholders = tagIds.map((_) => '?').join(',');
+    final sql =
+        '''
+      SELECT books.* 
+      FROM books 
+      JOIN book_tags ON books.id = book_tags.book_id 
+      WHERE book_tags.tag_id IN ($placeholders) 
+      GROUP BY books.id 
+      HAVING COUNT(DISTINCT book_tags.tag_id) = ?
+    ''';
+
+    final rows = await _db
+        .customSelect(
+          sql,
+          variables: [
+            ...tagIds.map((id) => Variable.withInt(id)),
+            Variable.withInt(tagIds.length),
+          ],
+          readsFrom: {_db.books, _db.bookTags},
+        )
+        .get();
+
+    return rows.map((row) => _db.books.map(row.data)).toList();
+  }
+
   Future<void> addTagToBook(int bookId, int tagId) =>
       _db.addTagToBook(bookId, tagId);
   Future<void> removeTagFromBook(int bookId, int tagId) =>

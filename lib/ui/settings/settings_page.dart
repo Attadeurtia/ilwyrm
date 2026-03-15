@@ -99,7 +99,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               }
             } catch (e) {
               // precise error handling not needed here, just skip cover
-              print('Error fetching cover for $query: $e');
             }
           }
 
@@ -148,7 +147,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             await db.into(db.books).insertOnConflictUpdate(book);
             importedCount++;
           } catch (e) {
-            print('Error importing book: $e');
+            // Ignore import error
           }
         }
 
@@ -267,6 +266,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await file.writeAsString(csvData);
 
       // Share the file
+      // ignore: deprecated_member_use
       await Share.shareXFiles([
         XFile(file.path),
       ], text: 'Export de ma bibliothèque Ilwyrm');

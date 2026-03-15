@@ -149,19 +149,24 @@ class _HomePageState extends ConsumerState<HomePage> {
               actions: [
                 Consumer(
                   builder: (context, ref, child) {
-                    final selectedTagId = ref.watch(selectedTagProvider);
+                    final selectedTagIds = ref.watch(selectedTagProvider);
                     final settingsRepo = ref.watch(settingsRepositoryProvider);
                     final isExperimental =
                         settingsRepo.isLibraryAvailabilityEnabled;
 
-                    if (isExperimental && selectedTagId != null) {
+                    // Only allow checking availability if exactly one tag is selected for now,
+                    // or implement for multiple. Let's start with single or disable.
+                    // Actually, plan said check `isNotEmpty`.
+                    // But `getBooksByTag` (singular) was used. We have `getBooksByTags` now.
+                    // Let's support multiple.
+                    if (isExperimental && selectedTagIds.isNotEmpty) {
                       return IconButton(
                         icon: const Icon(Icons.travel_explore),
                         tooltip: 'Vérifier la disponibilité',
                         onPressed: () async {
                           final repository = ref.read(booksRepositoryProvider);
-                          final books = await repository.getBooksByTag(
-                            selectedTagId,
+                          final books = await repository.getBooksByTags(
+                            selectedTagIds.toList(),
                           );
                           ref
                               .read(availabilityProvider.notifier)
@@ -331,14 +336,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildBookList(int index) {
-    final selectedTagId = ref.watch(selectedTagProvider);
+    final selectedTagIds = ref.watch(selectedTagProvider);
     switch (index) {
       case 0:
-        return BookListView(status: 'to_read', tagId: selectedTagId);
+        return BookListView(status: 'to_read', tagIds: selectedTagIds);
       case 1:
-        return BookListView(status: 'reading', tagId: selectedTagId);
+        return BookListView(status: 'reading', tagIds: selectedTagIds);
       case 2:
-        return BookListView(status: 'read', tagId: selectedTagId);
+        return BookListView(status: 'read', tagIds: selectedTagIds);
       default:
         return const SizedBox();
     }
@@ -381,7 +386,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       ref.read(selectionProvider.notifier).clear();
 
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${selectedIds.length} livre(s) mis à jour')),
         );
@@ -400,7 +405,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     ref.read(selectionProvider.notifier).clear();
 
-    if (mounted) {
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${selectedIds.length} livre(s) ajoutés aux favoris'),
@@ -417,7 +422,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final allTags = await repository.getAllTags();
     final selectedTags = <int>{};
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     await showDialog(
       context: context,
@@ -480,7 +485,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     ref.read(selectionProvider.notifier).clear();
 
-    if (mounted) {
+    if (context.mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Tags ajoutés !')));
@@ -521,7 +526,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       ref.read(selectionProvider.notifier).clear();
 
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${selectedIds.length} livre(s) supprimé(s)')),
         );
