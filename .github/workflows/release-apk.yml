@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (ex: v1.2.0)'
+        required: true
+        default: 'v1.0.0'
 
 jobs:
   build:
@@ -17,17 +22,15 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.3'   # adapte ta version
+          flutter-version: '3.38.3'
 
       - name: Install dependencies
         run: flutter pub get
 
-      # 🔐 Recréer le keystore depuis le secret base64
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/my-key.keystore
 
-      # 🔐 Générer le fichier key.properties
       - name: Create key.properties
         run: |
           cat <<EOF > android/key.properties
@@ -37,29 +40,20 @@ jobs:
           storeFile=../app/my-key.keystore
           EOF
 
-      # 🔑 Générer le fichier .env avec la clé API Google Books
       - name: Create .env file
         run: |
           echo "GOOGLE_BOOKS_API_KEY=${{ secrets.GOOGLE_BOOKS_API_KEY }}" > .env
 
-      # 🧱 Build de l'APK signé
       - name: Build Release APK
         run: flutter build apk --release
 
-      # 📦 Créer la release GitHub
-      - name: Create Release
-        id: create_release
+      # ✅ Une seule étape : crée la release ET upload l'APK
+      - name: Release & Upload APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ⬆️ Upload de l’APK signé
-      - name: Upload APK
-        uses: softprops/action-gh-release@v2
-        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: Release ${{ github.event.inputs.tag || github.ref_name }}
           files: build/app/outputs/flutter-apk/app-release.apk
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
