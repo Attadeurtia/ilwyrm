@@ -18,6 +18,7 @@ import '../../data/enums.dart';
 import '../add_book/edit_book_page.dart';
 import '../../data/settings_repository.dart';
 import 'availability_provider.dart';
+import '../../data/database.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -418,77 +419,18 @@ class _HomePageState extends ConsumerState<HomePage> {
     BuildContext context,
     Set<int> selectedIds,
   ) async {
-    final repository = ref.read(booksRepositoryProvider);
-    final allTags = await repository.getAllTags();
-    final selectedTags = <int>{};
-
-    if (!context.mounted) return;
-
-    await showDialog(
+    final result = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Ajouter des tags'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: allTags.length,
-                  itemBuilder: (context, index) {
-                    final tag = allTags[index];
-                    return CheckboxListTile(
-                      title: Text(tag.name),
-                      value: selectedTags.contains(tag.id),
-                      onChanged: (bool? value) {
-                        setState(() {
-                          if (value == true) {
-                            selectedTags.add(tag.id);
-                          } else {
-                            selectedTags.remove(tag.id);
-                          }
-                        });
-                      },
-                      secondary: tag.color != null
-                          ? CircleAvatar(
-                              backgroundColor: Color(tag.color!),
-                              radius: 10,
-                            )
-                          : null,
-                    );
-                  },
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Annuler'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    for (final bookId in selectedIds) {
-                      for (final tagId in selectedTags) {
-                        await repository.addTagToBook(bookId, tagId);
-                      }
-                    }
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                  child: const Text('Ajouter'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (context) => _ManageMultipleTagsDialog(selectedIds: selectedIds),
     );
 
-    ref.read(selectionProvider.notifier).clear();
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Tags ajoutés !')));
+    if (result == true) {
+      ref.read(selectionProvider.notifier).clear();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Tags ajoutés !')));
+      }
     }
   }
 
@@ -532,5 +474,168 @@ class _HomePageState extends ConsumerState<HomePage> {
         );
       }
     }
+  }
+}
+
+class _ManageMultipleTagsDialog extends ConsumerStatefulWidget {
+  final Set<int> selectedIds;
+
+  const _ManageMultipleTagsDialog({required this.selectedIds});
+
+  @override
+  ConsumerState<_ManageMultipleTagsDialog> createState() =>
+      _ManageMultipleTagsDialogState();
+}
+
+class _ManageMultipleTagsDialogState
+    extends ConsumerState<_ManageMultipleTagsDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Tag> _allTags = [];
+  List<Tag> _filteredTags = [];
+  final Set<int> _selectedTagIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTags();
+    _searchController.addListener(_filterTags);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTags() async {
+    final repository = ref.read(booksRepositoryProvider);
+    final allTags = await repository.getAllTags();
+
+    if (mounted) {
+      setState(() {
+        _allTags = allTags;
+        _filterTags();
+      });
+    }
+  }
+
+  void _filterTags() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredTags = _allTags;
+      } else {
+        _filteredTags = _allTags
+            .where((tag) => tag.name.toLowerCase().contains(query))
+            .toList();
+      }
+    });
+  }
+
+  Future<void> _createTag() async {
+    final name = _searchController.text.trim();
+    if (name.isEmpty) return;
+
+    final repository = ref.read(booksRepositoryProvider);
+    try {
+      final newTagId = await repository.createTag(name);
+      _selectedTagIds.add(newTagId);
+      _searchController.clear();
+      await _loadTags();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la création du tag: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Ajouter des tags'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      hintText: 'Rechercher ou créer un tag',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                ),
+                if (_searchController.text.isNotEmpty &&
+                    !_allTags.any(
+                      (t) =>
+                          t.name.toLowerCase() ==
+                          _searchController.text.trim().toLowerCase(),
+                    ))
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: _createTag,
+                    tooltip: 'Créer le tag',
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: _allTags.isEmpty
+                  ? const Text('Aucun tag disponible.')
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _filteredTags.length,
+                      itemBuilder: (context, index) {
+                        final tag = _filteredTags[index];
+                        return CheckboxListTile(
+                          title: Text(tag.name),
+                          value: _selectedTagIds.contains(tag.id),
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value == true) {
+                                _selectedTagIds.add(tag.id);
+                              } else {
+                                _selectedTagIds.remove(tag.id);
+                              }
+                            });
+                          },
+                          secondary: tag.color != null
+                              ? CircleAvatar(
+                                  backgroundColor: Color(tag.color!),
+                                  radius: 10,
+                                )
+                              : null,
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Annuler'),
+        ),
+        TextButton(
+          onPressed: () async {
+            final repository = ref.read(booksRepositoryProvider);
+            for (final bookId in widget.selectedIds) {
+              for (final tagId in _selectedTagIds) {
+                await repository.addTagToBook(bookId, tagId);
+              }
+            }
+            if (context.mounted) Navigator.pop(context, true);
+          },
+          child: const Text('Ajouter'),
+        ),
+      ],
+    );
   }
 }
