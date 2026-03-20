@@ -63,7 +63,8 @@ class _ManageTagsDialogState extends ConsumerState<ManageTagsDialog> {
 
     final database = ref.read(databaseProvider);
     try {
-      await database.createTag(name);
+      final tagId = await database.createTag(name);
+      await database.addTagToBook(widget.bookId, tagId);
       _searchController.clear();
       await _loadTags();
     } catch (e) {
