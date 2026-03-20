@@ -10,8 +10,13 @@ class GoogleBooksApi implements BookSearchApi {
   Future<List<ExternalBook>> searchBooks(String query) async {
     final apiKey = dotenv.maybeGet('GOOGLE_BOOKS_API_KEY');
     final keyParam = (apiKey != null && apiKey.isNotEmpty) ? '&key=$apiKey' : '';
+
+    // Si la query ressemble à un ISBN (10 ou 13 chiffres), utiliser le préfixe isbn:
+    final isIsbn = RegExp(r'^\d{10}(\d{3})?$').hasMatch(query.replaceAll('-', ''));
+    final q = isIsbn ? 'isbn:$query' : query;
+
     final url = Uri.parse(
-      '$_baseUrl/volumes?q=${Uri.encodeComponent(query)}&maxResults=20$keyParam',
+      '$_baseUrl/volumes?q=${Uri.encodeComponent(q)}&maxResults=20$keyParam',
     );
 
     final response = await http.get(url);
