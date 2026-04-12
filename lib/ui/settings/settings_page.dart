@@ -1,15 +1,13 @@
 import 'dart:io';
 
-import 'package:csv/csv.dart';
-import 'package:drift/drift.dart' as drift;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../data/csv_service.dart';
 import '../../data/database.dart';
-import '../../data/open_library_api.dart'; // Import for OpenLibraryApi
 import '../../data/settings_repository.dart';
 import '../theme_extensions.dart';
 
@@ -23,162 +21,15 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isLoading = false;
 
-  Future<void> _pickAndImportCsv() async {
-    try {
-      setState(() {
-        _isLoading = true;
-      });
+  CsvService get _csvService => CsvService(ref.read(databaseProvider));
 
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['csv'],
-      );
-
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final input = await file.readAsString();
-        final List<List<dynamic>> rows = const CsvToListConverter().convert(
-          input,
-          eol: '\n',
-        );
-
-        if (rows.isEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Le fichier CSV est vide.')),
-            );
-          }
-          return;
-        }
-
-        // Get header row to map columns
-        final headers = rows.first.map((e) => e.toString()).toList();
-        final dataRows = rows.skip(1).toList();
-
-        int importedCount = 0;
-        final db = ref.read(databaseProvider);
-        final openLibraryApi = OpenLibraryApi();
-
-        for (int i = 0; i < dataRows.length; i++) {
-          final row = dataRows[i];
-          if (row.length != headers.length) continue;
-
-          // Update progress (optional, could be added to UI state if desired)
-          // debugPrint('Importing book ${i + 1}/${dataRows.length}');
-
-          final map = <String, dynamic>{};
-          for (int j = 0; j < headers.length; j++) {
-            map[headers[j]] = row[j];
-          }
-
-          String? coverUrl;
-          // Try to fetch cover if not present (CSV usually doesn't have it)
-          final isbn13 = map['isbn_13']?.toString();
-          final isbn10 = map['isbn_10']?.toString();
-          final title = map['title']?.toString();
-          final author = map['author_text']?.toString();
-
-          // Prioritize ISBN search
-          final query =
-              isbn13 ?? isbn10 ?? (title != null ? '$title $author' : null);
-
-          if (query != null) {
-            try {
-              // Basic rate limiting/niceness
-              await Future.delayed(const Duration(milliseconds: 100));
-              final results = await openLibraryApi.searchBooks(query);
-              if (results.isNotEmpty) {
-                // Prefer the one with a cover
-                final match = results.firstWhere(
-                  (b) => b.coverUrl != null,
-                  orElse: () => results.first,
-                );
-                if (match.coverUrl != null) {
-                  coverUrl = match.coverUrl;
-                }
-              }
-            } catch (e) {
-              // precise error handling not needed here, just skip cover
-            }
-          }
-
-          // Map CSV fields to BookCompanion
-          final book = BooksCompanion(
-            title: drift.Value(map['title']?.toString() ?? ''),
-            authorText: drift.Value(map['author_text']?.toString()),
-            remoteId: drift.Value(map['remote_id']?.toString()),
-            openlibraryKey: drift.Value(map['openlibrary_key']?.toString()),
-            finnaKey: drift.Value(map['finna_key']?.toString()),
-            inventaireId: drift.Value(map['inventaire_id']?.toString()),
-            librarythingKey: drift.Value(map['librarything_key']?.toString()),
-            goodreadsKey: drift.Value(map['goodreads_key']?.toString()),
-            bnfId: drift.Value(map['bnf_id']?.toString()),
-            viaf: drift.Value(map['viaf']?.toString()),
-            wikidata: drift.Value(map['wikidata']?.toString()),
-            asin: drift.Value(map['asin']?.toString()),
-            aasin: drift.Value(map['aasin']?.toString()),
-            isfdb: drift.Value(map['isfdb']?.toString()),
-            isbn10: drift.Value(map['isbn_10']?.toString()),
-            isbn13: drift.Value(map['isbn_13']?.toString()),
-            oclcNumber: drift.Value(map['oclc_number']?.toString()),
-            startDate: drift.Value(_parseDate(map['start_date']?.toString())),
-            finishDate: drift.Value(_parseDate(map['finish_date']?.toString())),
-            stoppedDate: drift.Value(
-              _parseDate(map['stopped_date']?.toString()),
-            ),
-            rating: drift.Value(int.tryParse(map['rating']?.toString() ?? '')),
-            reviewName: drift.Value(map['review_name']?.toString()),
-            reviewCw: drift.Value(map['review_cw']?.toString()),
-            reviewContent: drift.Value(map['review_content']?.toString()),
-            reviewPublished: drift.Value(
-              _parseDate(map['review_published']?.toString()),
-            ),
-            shelf: drift.Value(
-              _mapShelf(map['shelf']?.toString() ?? 'to-read'),
-            ),
-            shelfName: drift.Value(map['shelf_name']?.toString()),
-            shelfDate: drift.Value(_parseDate(map['shelf_date']?.toString())),
-            coverUrl: coverUrl != null
-                ? drift.Value(coverUrl)
-                : const drift.Value.absent(),
-          );
-
-          try {
-            await db.into(db.books).insertOnConflictUpdate(book);
-            importedCount++;
-          } catch (e) {
-            // Ignore import error
-          }
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$importedCount livres importés avec succès.'),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de l\'importation: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
+  // ---------------------------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------------------------
 
   Future<void> _exportCsv() async {
     try {
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() => _isLoading = true);
 
       final db = ref.read(databaseProvider);
       final books = await db.getAllBooks();
@@ -192,113 +43,132 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         return;
       }
 
-      final headers = [
-        'title',
-        'author_text',
-        'remote_id',
-        'openlibrary_key',
-        'finna_key',
-        'inventaire_id',
-        'librarything_key',
-        'goodreads_key',
-        'bnf_id',
-        'viaf',
-        'wikidata',
-        'asin',
-        'aasin',
-        'isfdb',
-        'isbn_10',
-        'isbn_13',
-        'oclc_number',
-        'start_date',
-        'finish_date',
-        'stopped_date',
-        'rating',
-        'review_name',
-        'review_cw',
-        'review_content',
-        'review_published',
-        'shelf',
-        'shelf_name',
-        'shelf_date',
-      ];
+      final file = await _csvService.exportToCsv();
 
-      final rows = <List<dynamic>>[headers];
-
-      for (final book in books) {
-        rows.add([
-          book.title,
-          book.authorText,
-          book.remoteId,
-          book.openlibraryKey,
-          book.finnaKey,
-          book.inventaireId,
-          book.librarythingKey,
-          book.goodreadsKey,
-          book.bnfId,
-          book.viaf,
-          book.wikidata,
-          book.asin,
-          book.aasin,
-          book.isfdb,
-          book.isbn10,
-          book.isbn13,
-          book.oclcNumber,
-          book.startDate?.toIso8601String(),
-          book.finishDate?.toIso8601String(),
-          book.stoppedDate?.toIso8601String(),
-          book.rating,
-          book.reviewName,
-          book.reviewCw,
-          book.reviewContent,
-          book.reviewPublished?.toIso8601String(),
-          book.shelf,
-          book.shelfName,
-          book.shelfDate?.toIso8601String(),
-        ]);
-      }
-
-      final csvData = const ListToCsvConverter().convert(rows);
-
-      // Save to a temporary file
-      final directory = await Directory.systemTemp.createTemp();
-      final file = File('${directory.path}/ilwyrm_export.csv');
-      await file.writeAsString(csvData);
-
-      // Share the file
       // ignore: deprecated_member_use
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], text: 'Export de ma bibliothèque Ilwyrm');
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Export de ma bibliothèque Ilwyrm',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${books.length} livres exportés avec succès.'),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de l\'exportation: $e')),
+          SnackBar(content: Text('Erreur lors de l\'exportation : $e')),
         );
       }
     } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Import CSV
+  // ---------------------------------------------------------------------------
+
+  Future<void> _pickAndImportCsv() async {
+    // Demander à l'utilisateur s'il veut chercher les couvertures
+    final fetchCovers = await showDialog<bool>(
+      context: context,
+      builder: (context) => _ImportOptionsDialog(),
+    );
+
+    if (fetchCovers == null) return; // Dialogue annulé
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+      );
+
+      if (result == null || result.files.single.path == null) return;
+
+      final file = File(result.files.single.path!);
+
+      if (!mounted) return;
+
+      // Afficher le dialogue de progression
+      final importResult = await showDialog<CsvImportResult>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _ImportProgressDialog(
+          csvService: _csvService,
+          file: file,
+          fetchCovers: fetchCovers,
+        ),
+      );
+
+      if (importResult != null && mounted) {
+        final message = StringBuffer(
+          '${importResult.importedCount}/${importResult.totalCount} livres importés.',
+        );
+        if (importResult.skippedCount > 0) {
+          message.write(
+            ' ${importResult.skippedCount} ignorés.',
+          );
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message.toString()),
+            duration: const Duration(seconds: 4),
+            action: importResult.errors.isNotEmpty
+                ? SnackBarAction(
+                    label: 'Détails',
+                    onPressed: () => _showImportErrors(importResult.errors),
+                  )
+                : null,
+          ),
+        );
+      }
+    } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'importation : $e')),
+        );
       }
     }
   }
 
-  DateTime? _parseDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return null;
-    try {
-      return DateTime.parse(dateStr);
-    } catch (e) {
-      return null;
-    }
+  void _showImportErrors(List<String> errors) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Erreurs d\'importation'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: errors.length,
+            itemBuilder: (context, index) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                errors[index],
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
   }
 
-  String _mapShelf(String shelf) {
-    // Map BookWyrm shelf names to app shelf names if needed
-    // Assuming 'read', 'reading', 'to-read' match
-    return shelf;
-  }
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -308,11 +178,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    'Données',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 ListTile(
                   leading: const Icon(Icons.file_upload),
-                  title: const Text('Importer un fichier CSV (BookWyrm)'),
+                  title: const Text('Importer un fichier CSV'),
                   subtitle: const Text(
-                    'Importez vos livres depuis un export BookWyrm',
+                    'Importez vos livres et tags depuis un fichier CSV',
                   ),
                   onTap: _pickAndImportCsv,
                 ),
@@ -320,7 +203,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   leading: const Icon(Icons.download),
                   title: const Text('Exporter un fichier CSV'),
                   subtitle: const Text(
-                    'Exportez vos livres au format CSV (compatible BookWyrm)',
+                    'Exportez vos livres et tags pour les transférer',
                   ),
                   onTap: _exportCsv,
                 ),
@@ -402,6 +285,123 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+// =============================================================================
+// Dialogue d'options d'import
+// =============================================================================
+
+class _ImportOptionsDialog extends StatefulWidget {
+  @override
+  State<_ImportOptionsDialog> createState() => _ImportOptionsDialogState();
+}
+
+class _ImportOptionsDialogState extends State<_ImportOptionsDialog> {
+  bool _fetchCovers = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Options d\'importation'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Choisissez les options pour l\'importation de votre fichier CSV.',
+          ),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            title: const Text('Rechercher les couvertures'),
+            subtitle: const Text(
+              'Recherche en ligne les couvertures manquantes. Plus lent.',
+            ),
+            value: _fetchCovers,
+            onChanged: (value) => setState(() => _fetchCovers = value),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _fetchCovers),
+          child: const Text('Choisir le fichier'),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// Dialogue de progression d'import
+// =============================================================================
+
+class _ImportProgressDialog extends StatefulWidget {
+  final CsvService csvService;
+  final File file;
+  final bool fetchCovers;
+
+  const _ImportProgressDialog({
+    required this.csvService,
+    required this.file,
+    required this.fetchCovers,
+  });
+
+  @override
+  State<_ImportProgressDialog> createState() => _ImportProgressDialogState();
+}
+
+class _ImportProgressDialogState extends State<_ImportProgressDialog> {
+  int _current = 0;
+  int _total = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startImport();
+  }
+
+  Future<void> _startImport() async {
+    final result = await widget.csvService.importFromCsv(
+      widget.file,
+      fetchCovers: widget.fetchCovers,
+      onProgress: (current, total) {
+        if (mounted) {
+          setState(() {
+            _current = current;
+            _total = total;
+          });
+        }
+      },
+    );
+
+    if (mounted) {
+      Navigator.pop(context, result);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = _total > 0 ? _current / _total : 0.0;
+
+    return AlertDialog(
+      title: const Text('Importation en cours…'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LinearProgressIndicator(value: progress),
+          const SizedBox(height: 16),
+          Text(
+            _total > 0 ? '$_current / $_total livres' : 'Lecture du fichier…',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
     );
   }
 }

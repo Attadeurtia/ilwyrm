@@ -144,6 +144,10 @@ class BooksRepository {
       _db.removeTagFromBook(bookId, tagId);
   Future<int> createTag(String name, {int? color}) =>
       _db.createTag(name, color: color);
+  Future<Tag?> getTagByName(String name) => _db.getTagByName(name);
+  Future<int> deleteTag(int id) => _db.deleteTag(id);
+  Future<int> updateTag(int id, String name, {int? color}) =>
+      _db.updateTag(id, name, color: color);
 }
 
 final booksRepositoryProvider = Provider<BooksRepository>((ref) {

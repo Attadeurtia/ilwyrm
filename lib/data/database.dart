@@ -134,6 +134,21 @@ class AppDatabase extends _$AppDatabase {
           ..where((tbl) => tbl.bookId.equals(bookId) & tbl.tagId.equals(tagId)))
         .go();
   }
+
+  Future<Tag?> getTagByName(String name) {
+    return (select(tags)..where((tbl) => tbl.name.equals(name)))
+        .getSingleOrNull();
+  }
+
+  Future<int> deleteTag(int id) {
+    return (delete(tags)..where((tbl) => tbl.id.equals(id))).go();
+  }
+
+  Future<int> updateTag(int id, String name, {int? color}) {
+    return (update(tags)..where((tbl) => tbl.id.equals(id))).write(
+      TagsCompanion(name: Value(name), color: Value(color)),
+    );
+  }
 }
 
 LazyDatabase _openConnection() {
