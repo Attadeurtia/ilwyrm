@@ -365,7 +365,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('to-read'),
+    defaultValue: const Constant('to_read'),
   );
   static const VerificationMeta _shelfNameMeta = const VerificationMeta(
     'shelfName',

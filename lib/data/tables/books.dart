@@ -50,7 +50,7 @@ class Books extends Table {
 
   // Shelf Info
   TextColumn get shelf =>
-      text().withDefault(const Constant('to-read'))(); // read, reading, to-read
+      text().withDefault(const Constant('to_read'))(); // read, reading, to_read
   TextColumn get shelfName => text().named('shelf_name').nullable()();
   DateTimeColumn get shelfDate => dateTime().named('shelf_date').nullable()();
 

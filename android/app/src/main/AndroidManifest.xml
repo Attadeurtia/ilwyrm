@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Requis en release : sans ça, les builds release n'ont aucun accès réseau
+         (recherche, couvertures, BnF…). La permission n'était présente que dans
+         les manifests debug/profile. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="ilwyrm"
         android:name="${applicationName}"
