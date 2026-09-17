@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/database.dart';
 import '../books/bookshelf_detail_page.dart';
+import '../books/book_cover.dart';
 
 class LocalSearchDelegate extends SearchDelegate<Book?> {
   final WidgetRef ref;
@@ -72,26 +72,10 @@ class LocalSearchDelegate extends SearchDelegate<Book?> {
           itemBuilder: (context, index) {
             final book = books[index];
             return ListTile(
-              leading: Container(
+              leading: SizedBox(
                 width: 50,
                 height: 75,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  image: DecorationImage(
-                    image: book.coverId != null
-                        ? CachedNetworkImageProvider(
-                            'https://covers.openlibrary.org/b/id/${book.coverId}-S.jpg',
-                          )
-                        : book.openlibraryKey != null
-                        ? CachedNetworkImageProvider(
-                            'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-S.jpg',
-                          )
-                        : const AssetImage('assets/placeholder_book.png')
-                              as ImageProvider,
-                    fit: BoxFit.cover,
-                    onError: (e, s) {},
-                  ),
-                ),
+                child: BookCover(book: book, borderRadius: 4, compact: true),
               ),
               title: Text(book.title),
               subtitle: Text(book.authorText ?? 'Auteur inconnu'),

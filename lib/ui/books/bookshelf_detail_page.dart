@@ -6,7 +6,7 @@ import '../../data/database.dart';
 import '../../data/repositories/books_repository.dart';
 import '../add_book/edit_book_page.dart';
 import '../add_book/search_book_page.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'book_cover.dart';
 import '../../data/settings_repository.dart';
 import 'manage_tags_dialog.dart';
 import '../home/availability_provider.dart';
@@ -106,26 +106,6 @@ class BookDetailsPage extends ConsumerWidget {
                         height: 210,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          image:
-                              (book.coverId != null ||
-                                  book.openlibraryKey != null ||
-                                  book.coverUrl != null)
-                              ? DecorationImage(
-                                  image: book.coverUrl != null
-                                      ? CachedNetworkImageProvider(
-                                          book.coverUrl!,
-                                        )
-                                      : book.coverId != null
-                                      ? CachedNetworkImageProvider(
-                                          'https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg',
-                                        )
-                                      : CachedNetworkImageProvider(
-                                          'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
-                                        ),
-                                  fit: BoxFit.cover,
-                                  onError: (e, s) {},
-                                )
-                              : null,
                           boxShadow: [
                             BoxShadow(
                               color: Theme.of(
@@ -136,22 +116,8 @@ class BookDetailsPage extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        child:
-                            book.coverId == null &&
-                                book.openlibraryKey == null &&
-                                book.coverUrl == null
-                            ? Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.primaryContainer,
-                                ),
-                                child: const Center(
-                                  child: Icon(Icons.book, size: 40),
-                                ),
-                              )
-                            : null,
+                        clipBehavior: Clip.antiAlias,
+                        child: BookCover(book: book, borderRadius: 16),
                       ),
                     ),
                     const SizedBox(width: 24),
@@ -378,26 +344,10 @@ class _AuthorBooksList extends ConsumerWidget {
           children: snapshot.data!
               .map(
                 (book) => ListTile(
-                  leading: Container(
+                  leading: SizedBox(
                     width: 50,
                     height: 75,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      image: DecorationImage(
-                        image: book.coverId != null
-                            ? CachedNetworkImageProvider(
-                                'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
-                              )
-                            : book.openlibraryKey != null
-                            ? CachedNetworkImageProvider(
-                                'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
-                              )
-                            : const AssetImage('assets/placeholder_book.png')
-                                  as ImageProvider,
-                        fit: BoxFit.cover,
-                        onError: (e, s) {},
-                      ),
-                    ),
+                    child: BookCover(book: book, compact: true),
                   ),
                   title: Text(book.title),
                   subtitle: Text(book.authorText ?? ''),
