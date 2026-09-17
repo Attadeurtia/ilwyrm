@@ -15,7 +15,14 @@ import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
+  // Ne pas planter au démarrage si .env est absent (clone/build sans secret) :
+  // la recherche Google se dégrade, le reste de l'app fonctionne.
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // Initialise dotenv à vide pour que maybeGet() renvoie null sans planter.
+    dotenv.loadFromString(isOptional: true);
+  }
   await initializeDateFormatting('fr_FR', null);
 
   final db = AppDatabase();

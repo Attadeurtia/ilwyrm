@@ -131,9 +131,7 @@ class BookListView extends ConsumerWidget {
       // If filtering by tag, we first get books by tag, then filter by status/sort in memory
       // (Drift doesn't easily support complex joins + where + sort in a single fluent stream without custom SQL)
       // For simplicity and performance on small datasets, this is fine.
-      bookStream = repository.getBooksByTags(tagIds.toList()).asStream().map((
-        books,
-      ) {
+      bookStream = repository.watchBooksByTags(tagIds.toList()).map((books) {
         var filtered = books.where((b) {
           final statusFilter = b.shelf == dbStatus;
           if (filters.contains('Favoris')) {

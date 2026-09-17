@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../data/database.dart';
 import '../../data/repositories/books_repository.dart';
@@ -75,12 +76,35 @@ class BookDetailsPage extends ConsumerWidget {
                       ),
                     ),
                     onTap: () {
-                      Future.delayed(const Duration(seconds: 0), () {
-                        if (context.mounted) {
-                          repository.deleteBook(book.id);
-                          Navigator.of(
-                            context,
-                          ).pop(); // Pop the detail page after deleting
+                      Future.delayed(Duration.zero, () async {
+                        if (!context.mounted) return;
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Supprimer le livre ?'),
+                            content: Text(
+                              'Voulez-vous vraiment supprimer « ${book.title} » ?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Annuler'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: Text(
+                                  'Supprimer',
+                                  style: TextStyle(
+                                    color: Theme.of(ctx).colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true && context.mounted) {
+                          await repository.deleteBook(book.id);
+                          if (context.mounted) Navigator.of(context).pop();
                         }
                       });
                     },
@@ -182,10 +206,9 @@ class BookDetailsPage extends ConsumerWidget {
                           // ISBN
                           InkWell(
                             onTap: () {
-                              if (book.isbn13 != null) {
-                                Clipboard.setData(
-                                  ClipboardData(text: book.isbn13!),
-                                );
+                              final isbn = book.isbn13 ?? book.isbn10;
+                              if (isbn != null) {
+                                Clipboard.setData(ClipboardData(text: isbn));
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
@@ -215,7 +238,7 @@ class BookDetailsPage extends ConsumerWidget {
                                       ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(book.isbn13 ?? 'Inconnu'),
+                                Text(book.isbn13 ?? book.isbn10 ?? 'Inconnu'),
                               ],
                             ),
                           ),
@@ -315,8 +338,7 @@ class BookDetailsPage extends ConsumerWidget {
   }
 
   String _formatDate(DateTime date) {
-    // Simple formatter, ideally use intl package
-    return '${date.day}/${date.month}/${date.year}';
+    return DateFormat.yMMMd('fr_FR').format(date);
   }
 }
 
@@ -333,15 +355,16 @@ class _AuthorBooksList extends ConsumerWidget {
     final repository = ref.watch(booksRepositoryProvider);
 
     return FutureBuilder<List<Book>>(
-      // TODO: Add getBooksByAuthor to repository if needed, or use search
-      future: repository.searchBooks(author!),
+      future: repository.getBooksByAuthor(author!),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        final books =
+            (snapshot.data ?? []).where((b) => b.id != currentBookId).toList();
+        if (books.isEmpty) {
           return const Text('Aucun autre livre trouvé.');
         }
 
         return Column(
-          children: snapshot.data!
+          children: books
               .map(
                 (book) => ListTile(
                   leading: SizedBox(
@@ -554,8 +577,8 @@ class _LibraryAvailabilityWidgetState
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsRepositoryProvider);
-    if (!settings.isLibraryAvailabilityEnabled) {
+    final settings = ref.watch(settingsProvider);
+    if (!settings.libraryAvailabilityEnabled) {
       return const SizedBox.shrink();
     }
 
@@ -641,7 +664,7 @@ class _LibraryAvailabilityWidgetState
                 ),
               const SizedBox(height: 4),
               Text(
-                'Dernière vérification : ${DateTime.fromMillisecondsSinceEpoch(response.lastCheck).toString()}',
+                'Dernière vérification : ${DateFormat.yMMMd('fr_FR').add_Hm().format(DateTime.fromMillisecondsSinceEpoch(response.lastCheck))}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -693,7 +716,7 @@ class _BookMetadataTable extends StatelessWidget {
                   child: Text(
                     entry.key,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

@@ -5,6 +5,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:path_provider/path_provider.dart';
 
 import 'database.dart';
+import 'enums.dart';
 import 'open_library_api.dart';
 
 /// Résultat d'une opération d'import CSV.
@@ -137,7 +138,11 @@ class CsvService {
       ]);
     }
 
-    final csvData = const ListToCsvConverter().convert(rows);
+    // Neutralise l'injection de formule (cellules commençant par = + - @…).
+    final safeRows = rows
+        .map((r) => r.map((c) => c is String ? _csvSafe(c) : c).toList())
+        .toList();
+    final csvData = const ListToCsvConverter().convert(safeRows);
 
     final directory = await getTemporaryDirectory();
     final file = File('${directory.path}/ilwyrm_export.csv');
@@ -201,7 +206,7 @@ class CsvService {
 
       final map = <String, String>{};
       for (int j = 0; j < headers.length; j++) {
-        map[headers[j]] = row[j].toString();
+        map[headers[j]] = _stripCsvGuard(row[j].toString());
       }
 
       try {
@@ -210,6 +215,15 @@ class CsvService {
         if (coverUrl == null && fetchCovers && openLibraryApi != null) {
           coverUrl = await _fetchCoverUrl(map, openLibraryApi);
         }
+
+        // Statut normalisé + dates cohérentes avec le statut (même règle que
+        // le reste de l'app).
+        final shelf = BookShelf.fromId(_normalizeShelf(map['shelf']));
+        final dates = datesForShelf(
+          shelf,
+          currentStart: _parseDate(map['start_date']),
+          currentFinish: _parseDate(map['finish_date']),
+        );
 
         // Construire le companion avec TOUS les champs
         final book = BooksCompanion(
@@ -234,8 +248,8 @@ class CsvService {
           currentPage: drift.Value(_parseInt(map['current_page'])),
           publisher: drift.Value(_nonEmpty(map['publisher'])),
           publicationYear: drift.Value(_parseInt(map['publication_year'])),
-          startDate: drift.Value(_parseDate(map['start_date'])),
-          finishDate: drift.Value(_parseDate(map['finish_date'])),
+          startDate: drift.Value(dates.start),
+          finishDate: drift.Value(dates.finish),
           stoppedDate: drift.Value(_parseDate(map['stopped_date'])),
           coverId: drift.Value(_parseInt(map['cover_id'])),
           coverUrl: coverUrl != null
@@ -247,8 +261,8 @@ class CsvService {
           reviewCw: drift.Value(_nonEmpty(map['review_cw'])),
           reviewContent: drift.Value(_nonEmpty(map['review_content'])),
           reviewPublished: drift.Value(_parseDate(map['review_published'])),
-          shelf: drift.Value(map['shelf'] ?? 'to-read'),
-          shelfName: drift.Value(_nonEmpty(map['shelf_name'])),
+          shelf: drift.Value(shelf.id),
+          shelfName: drift.Value(shelf.label),
           shelfDate: drift.Value(_parseDate(map['shelf_date'])),
           isFavorite: drift.Value(map['is_favorite'] == 'true'),
           dateAdded: drift.Value(
@@ -259,8 +273,18 @@ class CsvService {
           ),
         );
 
-        // Insérer le livre
-        final bookId = await _db.into(_db.books).insertOnConflictUpdate(book);
+        // Déduplication : si un livre partage l'ISBN-13/10 ou le remote_id, on
+        // le met à jour plutôt que de créer un doublon (import ré-exécutable).
+        final existing = await _findExistingBook(map);
+        final int bookId;
+        if (existing != null) {
+          await (_db.update(_db.books)
+                ..where((t) => t.id.equals(existing.id)))
+              .write(book);
+          bookId = existing.id;
+        } else {
+          bookId = await _db.into(_db.books).insert(book);
+        }
 
         // Gérer les tags
         final tagsStr = _nonEmpty(map['tags']);
@@ -323,6 +347,32 @@ class CsvService {
     return value;
   }
 
+  /// Normalise la valeur de statut importée : tolère l'ancien `to-read` (tiret),
+  /// les valeurs vides ou inconnues → `to_read`.
+  String _normalizeShelf(String? value) {
+    switch (_nonEmpty(value)) {
+      case 'reading':
+        return 'reading';
+      case 'read':
+        return 'read';
+      default:
+        return 'to_read';
+    }
+  }
+
+  static const _formulaLead = '=+-@\t\r';
+
+  /// Préfixe une apostrophe aux cellules commençant par un caractère de formule
+  /// pour éviter leur exécution dans un tableur (CSV injection).
+  String _csvSafe(String v) =>
+      (v.isNotEmpty && _formulaLead.contains(v[0])) ? "'$v" : v;
+
+  /// Retire l'apostrophe de garde ajoutée à l'export (round-trip propre).
+  String _stripCsvGuard(String v) =>
+      (v.length >= 2 && v[0] == "'" && _formulaLead.contains(v[1]))
+          ? v.substring(1)
+          : v;
+
   DateTime? _parseDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty || dateStr == 'null') return null;
     try {
@@ -335,6 +385,28 @@ class CsvService {
   int? _parseInt(String? value) {
     if (value == null || value.isEmpty || value == 'null') return null;
     return int.tryParse(value);
+  }
+
+  /// Cherche un livre existant partageant l'ISBN-13, l'ISBN-10 ou le remote_id,
+  /// pour rendre l'import idempotent (mise à jour au lieu de doublon).
+  Future<Book?> _findExistingBook(Map<String, String> map) async {
+    final isbn13 = _nonEmpty(map['isbn_13']);
+    final isbn10 = _nonEmpty(map['isbn_10']);
+    final remoteId = _nonEmpty(map['remote_id']);
+    if (isbn13 == null && isbn10 == null && remoteId == null) return null;
+
+    return (_db.select(_db.books)
+          ..where((t) {
+            drift.Expression<bool>? cond;
+            void add(drift.Expression<bool> c) =>
+                cond = cond == null ? c : cond! | c;
+            if (isbn13 != null) add(t.isbn13.equals(isbn13));
+            if (isbn10 != null) add(t.isbn10.equals(isbn10));
+            if (remoteId != null) add(t.remoteId.equals(remoteId));
+            return cond!;
+          })
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   Future<String?> _fetchCoverUrl(

@@ -215,14 +215,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           isbn10: widget.initialBook?.isbn10 != null
               ? drift.Value(widget.initialBook!.isbn10)
               : const drift.Value.absent(),
-          // We don't store coverId for non-OpenLibrary books easily unless we change schema,
-          // but we can rely on coverUrl if we had a column for it, or just download it.
-          // For now, we'll skip coverId if not from OpenLibrary or if we can't parse it.
-          // The ExternalBook doesn't expose coverId directly as int, it's part of logic.
-          // But we have coverUrl.
-          // The current database schema has coverId (int) and coverPath (String).
-          // If it's a URL, we might need to download it or store the URL if we add a column.
-          // For now, we'll leave coverId absent if not OpenLibrary.
+          // coverId (numérique OpenLibrary) non exposé ici : on s'appuie sur
+          // coverUrl. BookCover sait retomber sur la couverture par ISBN/clé.
           coverId: const drift.Value.absent(),
           coverUrl: widget.initialBook?.coverUrl != null
               ? drift.Value(widget.initialBook!.coverUrl)

@@ -45,10 +45,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
       final file = await _csvService.exportToCsv();
 
-      // ignore: deprecated_member_use
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'Export de ma bibliothèque Ilwyrm',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'Export de ma bibliothèque Ilwyrm',
+        ),
       );
 
       if (mounted) {
@@ -217,7 +218,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     showAboutDialog(
                       context: context,
                       applicationName: 'Ilwyrm',
-                      applicationVersion: '1.0.0',
+                      applicationVersion: '1.0.7',
                       applicationIcon: const Icon(Icons.menu_book, size: 48),
                       applicationLegalese: '© 2025 Ilwyrm',
                       children: [
@@ -411,9 +412,10 @@ class _ExperimentalSettings extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settingsRepo = ref.watch(settingsRepositoryProvider);
-    final isEnabled = settingsRepo.isLibraryAvailabilityEnabled;
-    final apiUrl = settingsRepo.libraryApiUrl;
+    // Réactif : le NotifierProvider fait se reconstruire l'UI à chaque change.
+    final settings = ref.watch(settingsProvider);
+    final isEnabled = settings.libraryAvailabilityEnabled;
+    final apiUrl = settings.libraryApiUrl;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,24 +437,8 @@ class _ExperimentalSettings extends ConsumerWidget {
             style: TextStyle(color: context.semanticColors.warning),
           ),
           value: isEnabled,
-          onChanged: (value) async {
-            await settingsRepo.setLibraryAvailabilityEnabled(value);
-            // Force rebuild to update the UI immediately if needed,
-            // though Riverpod should handle it if we watched a stream/state.
-            // Since we are reading directly from prefs in the repo getter (which isn't reactive by itself),
-            // we might need a StateProvider or similar if we want instant UI updates elsewhere.
-            // But for this simple case, `ref.refresh` or `setState` in a StatefulWidget would be better.
-            // However, since this is a ConsumerWidget and we are not using a StateNotifier,
-            // we rely on the fact that `settingsRepositoryProvider` is just a Provider.
-            // To make it reactive, we should probably use a StateNotifier or similar.
-            // For now, let's just force a rebuild by invalidating the provider if we want,
-            // but actually the repo methods are async and don't notify.
-            // A simple way is to use a StatefulWidget for this section or make the repo return a Stream.
-            // Given the constraints, I'll convert this widget to a StatefulWidget to update local state
-            // or better, just use `setState` if it was stateful.
-            // Let's make `_ExperimentalSettings` Stateful to handle the switch animation correctly.
-            (context as Element).markNeedsBuild();
-          },
+          onChanged: (value) =>
+              ref.read(settingsProvider.notifier).setLibraryAvailabilityEnabled(value),
         ),
         if (isEnabled)
           ListTile(
@@ -461,35 +447,38 @@ class _ExperimentalSettings extends ConsumerWidget {
             trailing: const Icon(Icons.edit),
             onTap: () async {
               final controller = TextEditingController(text: apiUrl);
-              final newUrl = await showDialog<String>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Configurer l\'URL de l\'API'),
-                  content: TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(
-                      hintText: 'http://...',
-                      labelText: 'URL',
+              try {
+                final newUrl = await showDialog<String>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Configurer l\'URL de l\'API'),
+                    content: TextField(
+                      controller: controller,
+                      keyboardType: TextInputType.url,
+                      decoration: const InputDecoration(
+                        hintText: 'https://...',
+                        labelText: 'URL',
+                      ),
                     ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Annuler'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, controller.text),
+                        child: const Text('Enregistrer'),
+                      ),
+                    ],
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Annuler'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, controller.text),
-                      child: const Text('Enregistrer'),
-                    ),
-                  ],
-                ),
-              );
-
-              if (newUrl != null) {
-                await settingsRepo.setLibraryApiUrl(newUrl);
-                if (context.mounted) {
-                  (context as Element).markNeedsBuild();
+                );
+                if (newUrl != null) {
+                  await ref
+                      .read(settingsProvider.notifier)
+                      .setLibraryApiUrl(newUrl.trim());
                 }
+              } finally {
+                controller.dispose();
               }
             },
           ),
