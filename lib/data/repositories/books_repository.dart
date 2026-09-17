@@ -87,16 +87,21 @@ class BooksRepository {
 
   // Status
   Future<void> updateStatus(int bookId, BookShelf status) async {
+    // Conserve les dates pertinentes déjà saisies, complète/efface le reste
+    // selon la règle d'unification (voir datesForShelf).
+    final book = await getBook(bookId);
+    final dates = datesForShelf(
+      status,
+      currentStart: book.startDate,
+      currentFinish: book.finishDate,
+    );
+
     final companion = BooksCompanion(
       shelf: Value(status.id),
       shelfName: Value(status.label),
       dateModified: Value(DateTime.now()),
-      startDate: status == BookShelf.reading
-          ? Value(DateTime.now())
-          : const Value.absent(),
-      finishDate: status == BookShelf.read
-          ? Value(DateTime.now())
-          : const Value.absent(),
+      startDate: Value(dates.start),
+      finishDate: Value(dates.finish),
     );
 
     await (_db.update(
