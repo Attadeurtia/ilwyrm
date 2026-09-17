@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' as drift;
 import '../../data/database.dart';
+import '../../data/book_companion_mapper.dart';
 import '../../data/book_search_api.dart';
-import '../../data/open_library_api.dart';
-import '../../data/google_books_api.dart'; // Import Google Books API
-import '../../data/inventaire_api.dart'; // Import Inventaire API
+import '../../data/book_search_service.dart';
 import '../theme_extensions.dart';
 
 class BatchAddPage extends ConsumerStatefulWidget {
@@ -18,9 +16,7 @@ class BatchAddPage extends ConsumerStatefulWidget {
 }
 
 class _BatchAddPageState extends ConsumerState<BatchAddPage> {
-  final OpenLibraryApi _openLibraryApi = OpenLibraryApi();
-  final GoogleBooksApi _googleBooksApi = GoogleBooksApi();
-  final InventaireApi _inventaireApi = InventaireApi();
+  final BookSearchService _service = BookSearchService();
 
   /// Map of ISBN -> List of found books from all sources
   final Map<String, List<ExternalBook>> _candidates = {};
@@ -42,33 +38,14 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
       if (_candidates.containsKey(isbn)) continue;
 
       try {
-        final List<ExternalBook> allResults = [];
+        // Interroge les 3 sources, fusionne et reclasse : le meilleur candidat
+        // (métadonnées les plus complètes, source la plus fiable) arrive en tête.
+        final agg = await _service.search(isbn);
+        final merged = agg.merged;
 
-        // Launch searches in parallel
-        final results = await Future.wait([
-          _openLibraryApi
-              .searchBooks(isbn)
-              .then((l) => l, onError: (_) => <ExternalBook>[]),
-          _googleBooksApi
-              .searchBooks(isbn)
-              .then((l) => l, onError: (_) => <ExternalBook>[]),
-          _inventaireApi
-              .searchBooks(isbn)
-              .then((l) => l, onError: (_) => <ExternalBook>[]),
-        ]);
-
-        for (final list in results) {
-          allResults.addAll(list);
-        }
-
-        if (allResults.isNotEmpty) {
-          _candidates[isbn] = allResults;
-          // Heuristic: Prefer OpenLibrary exact match, else first result
-          final openLibraryMatch = allResults.firstWhere(
-            (b) => b.source == 'openlibrary',
-            orElse: () => allResults.first,
-          );
-          _selectedBooks[isbn] = openLibraryMatch;
+        if (merged.isNotEmpty) {
+          _candidates[isbn] = merged;
+          _selectedBooks[isbn] = merged.first;
         } else {
           _failedIsbns.add(isbn);
         }
@@ -89,31 +66,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
 
     for (final isbn in _selectedBooks.keys) {
       final book = _selectedBooks[isbn]!;
-      final companion = BooksCompanion(
-        title: drift.Value(book.title),
-        authorText: drift.Value(book.authorText),
-        publisher: book.publisher != null
-            ? drift.Value(book.publisher)
-            : const drift.Value.absent(),
-        publicationYear: book.firstPublishYear != null
-            ? drift.Value(book.firstPublishYear)
-            : const drift.Value.absent(),
-        pageCount: drift.Value(book.numberOfPages),
-        shelf: const drift.Value('to_read'),
-        shelfName: const drift.Value('À lire'),
-        openlibraryKey: book.key.isNotEmpty && book.source == 'openlibrary'
-            ? drift.Value(book.key.split('/').last)
-            : const drift.Value.absent(),
-        isbn13: book.isbns?.isNotEmpty == true
-            ? drift.Value(book.isbns!.first)
-            : const drift.Value.absent(),
-        coverUrl: book.coverUrl != null
-            ? drift.Value(book.coverUrl)
-            : const drift.Value.absent(),
-        dateAdded: drift.Value(DateTime.now()),
-        dateModified: drift.Value(DateTime.now()),
-      );
-      await database.into(database.books).insert(companion);
+      await database.into(database.books).insert(book.toBooksCompanion());
       addedCount++;
     }
 

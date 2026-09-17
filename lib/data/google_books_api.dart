@@ -11,12 +11,14 @@ class GoogleBooksApi implements BookSearchApi {
     final apiKey = dotenv.maybeGet('GOOGLE_BOOKS_API_KEY');
     final keyParam = (apiKey != null && apiKey.isNotEmpty) ? '&key=$apiKey' : '';
 
-    // Si la query ressemble à un ISBN (10 ou 13 chiffres), utiliser le préfixe isbn:
-    final isIsbn = RegExp(r'^\d{10}(\d{3})?$').hasMatch(query.replaceAll('-', ''));
-    final q = isIsbn ? 'isbn:$query' : query;
+    // Si la query ressemble à un ISBN, utiliser le préfixe isbn:
+    final q = isIsbn(query) ? 'isbn:${cleanIsbn(query)}' : query;
 
+    // country est requis par l'API Books depuis 2020 (sinon réponses vides
+    // ou 403 selon la région) ; printType=books écarte les magazines.
     final url = Uri.parse(
-      '$_baseUrl/volumes?q=${Uri.encodeComponent(q)}&maxResults=20$keyParam',
+      '$_baseUrl/volumes?q=${Uri.encodeComponent(q)}'
+      '&maxResults=20&printType=books&country=FR&orderBy=relevance$keyParam',
     );
 
     final response = await http.get(url);
@@ -29,6 +31,7 @@ class GoogleBooksApi implements BookSearchApi {
       final items = data['items'] as List;
       return items.map((json) {
         final volumeInfo = json['volumeInfo'];
+        final accessInfo = json['accessInfo'] as Map<String, dynamic>?;
         final authors = (volumeInfo['authors'] as List?)
             ?.map((e) => e.toString())
             .toList();
@@ -50,11 +53,13 @@ class GoogleBooksApi implements BookSearchApi {
           isbns: isbns,
           numberOfPages: volumeInfo['pageCount'],
           publisher: volumeInfo['publisher'],
+          description: volumeInfo['description'],
+          publicDomain: accessInfo?['publicDomain'] == true,
           source: 'google_books',
         );
       }).toList();
     } else {
-      throw Exception('Failed to load books from Google Books');
+      throw Exception('Google Books HTTP ${response.statusCode}');
     }
   }
 }
