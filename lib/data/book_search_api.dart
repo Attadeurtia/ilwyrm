@@ -2,6 +2,18 @@ abstract class BookSearchApi {
   Future<List<ExternalBook>> searchBooks(String query);
 }
 
+/// Nettoie un ISBN : retire tirets/espaces et met un éventuel « X » final en
+/// majuscule (chiffre de contrôle valide d'un ISBN-10).
+String cleanIsbn(String raw) =>
+    raw.replaceAll(RegExp(r'[\s-]'), '').toUpperCase();
+
+/// Détecte si la chaîne est un ISBN-10 (le dernier caractère peut être « X »)
+/// ou un ISBN-13.
+bool isIsbn(String query) {
+  final s = cleanIsbn(query);
+  return RegExp(r'^(\d{9}[\dX]|\d{13})$').hasMatch(s);
+}
+
 class ExternalBook {
   final String key;
   final String title;
@@ -11,7 +23,26 @@ class ExternalBook {
   final List<String>? isbns;
   final int? numberOfPages;
   final String? publisher;
-  final String source; // 'openlibrary', 'google_books', 'inventaire'
+
+  /// Source principale : 'openlibrary', 'google_books', 'inventaire'.
+  final String source;
+
+  /// Toutes les sources ayant produit cette fiche (après fusion des doublons).
+  final Set<String> sources;
+
+  final String? description;
+  final String? wikidata;
+  final String? inventaireId;
+
+  /// Clé OpenLibrary courte (ex : `OL123W` ou `OL456M`), sans le préfixe.
+  final String? openlibraryKey;
+
+  /// Identifiant BnF (ark, ex : `cb474566399`).
+  final String? bnfId;
+
+  /// Vrai si la source signale un ouvrage du domaine public (typiquement de
+  /// vieux scans Google Books peu pertinents pour un suivi de lecture).
+  final bool publicDomain;
 
   ExternalBook({
     required this.key,
@@ -23,5 +54,68 @@ class ExternalBook {
     this.numberOfPages,
     this.publisher,
     required this.source,
-  });
+    Set<String>? sources,
+    this.description,
+    this.wikidata,
+    this.inventaireId,
+    this.openlibraryKey,
+    this.bnfId,
+    this.publicDomain = false,
+  }) : sources = sources ?? {source};
+
+  /// Premier ISBN-13 disponible (nettoyé), sinon null.
+  String? get isbn13 {
+    for (final e in isbns ?? const <String>[]) {
+      final c = cleanIsbn(e);
+      if (c.length == 13) return c;
+    }
+    return null;
+  }
+
+  /// Premier ISBN-10 disponible (nettoyé), sinon null.
+  String? get isbn10 {
+    for (final e in isbns ?? const <String>[]) {
+      final c = cleanIsbn(e);
+      if (c.length == 10) return c;
+    }
+    return null;
+  }
+
+  ExternalBook copyWith({
+    String? key,
+    String? title,
+    String? authorText,
+    String? coverUrl,
+    int? firstPublishYear,
+    List<String>? isbns,
+    int? numberOfPages,
+    String? publisher,
+    String? source,
+    Set<String>? sources,
+    String? description,
+    String? wikidata,
+    String? inventaireId,
+    String? openlibraryKey,
+    String? bnfId,
+    bool? publicDomain,
+  }) {
+    return ExternalBook(
+      key: key ?? this.key,
+      title: title ?? this.title,
+      authorText: authorText ?? this.authorText,
+      coverUrl: coverUrl ?? this.coverUrl,
+      firstPublishYear: firstPublishYear ?? this.firstPublishYear,
+      isbns: isbns ?? this.isbns,
+      numberOfPages: numberOfPages ?? this.numberOfPages,
+      publisher: publisher ?? this.publisher,
+      source: source ?? this.source,
+      sources: sources ?? this.sources,
+      description: description ?? this.description,
+      wikidata: wikidata ?? this.wikidata,
+      inventaireId: inventaireId ?? this.inventaireId,
+      openlibraryKey: openlibraryKey ?? this.openlibraryKey,
+      bnfId: bnfId ?? this.bnfId,
+      publicDomain: publicDomain ?? this.publicDomain,
+    );
+  }
 }

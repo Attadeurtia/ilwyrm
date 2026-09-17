@@ -5,13 +5,9 @@ import 'book_search_api.dart';
 class OpenLibraryApi implements BookSearchApi {
   static const String _baseUrl = 'https://openlibrary.org';
 
-  /// Détecte si la query est un ISBN pur (10 ou 13 chiffres)
-  static bool _isIsbn(String query) =>
-      RegExp(r'^\d{10}(\d{3})?$').hasMatch(query.replaceAll('-', ''));
-
   @override
   Future<List<ExternalBook>> searchBooks(String query) async {
-    if (_isIsbn(query)) {
+    if (isIsbn(query)) {
       return _searchByIsbn(query);
     }
     return _searchByText(query);
@@ -19,8 +15,8 @@ class OpenLibraryApi implements BookSearchApi {
 
   /// Recherche via l'endpoint ISBN dédié : /isbn/{isbn}.json
   Future<List<ExternalBook>> _searchByIsbn(String isbn) async {
-    final cleanIsbn = isbn.replaceAll('-', '');
-    final url = Uri.parse('$_baseUrl/isbn/$cleanIsbn.json');
+    final clean = cleanIsbn(isbn);
+    final url = Uri.parse('$_baseUrl/isbn/$clean.json');
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -33,7 +29,8 @@ class OpenLibraryApi implements BookSearchApi {
         final authorKey = authorRefs.first['key'] as String?;
         if (authorKey != null) {
           try {
-            final authorRes = await http.get(Uri.parse('$_baseUrl$authorKey.json'));
+            final authorRes =
+                await http.get(Uri.parse('$_baseUrl$authorKey.json'));
             if (authorRes.statusCode == 200) {
               final authorData = json.decode(authorRes.body);
               authorText = authorData['name'] ?? authorText;
@@ -48,10 +45,10 @@ class OpenLibraryApi implements BookSearchApi {
       if (covers != null && covers.isNotEmpty) {
         coverUrl = 'https://covers.openlibrary.org/b/id/${covers.first}-M.jpg';
       } else {
-        coverUrl = 'https://covers.openlibrary.org/b/isbn/$cleanIsbn-M.jpg';
+        coverUrl = 'https://covers.openlibrary.org/b/isbn/$clean-M.jpg';
       }
 
-      final isbns = <String>[isbn];
+      final isbns = <String>[clean];
       final isbn13 = data['isbn_13'] as List?;
       final isbn10 = data['isbn_10'] as List?;
       if (isbn13 != null) isbns.addAll(isbn13.map((e) => e.toString()));
@@ -68,9 +65,11 @@ class OpenLibraryApi implements BookSearchApi {
           ?.map((e) => e.toString())
           .toList();
 
+      final key = data['key'] as String? ?? '/isbn/$clean';
+
       return [
         ExternalBook(
-          key: data['key'] ?? '/isbn/$cleanIsbn',
+          key: key,
           title: data['title'] ?? 'Unknown Title',
           authorText: authorText,
           coverUrl: coverUrl,
@@ -78,13 +77,14 @@ class OpenLibraryApi implements BookSearchApi {
           isbns: isbns.toSet().toList(),
           numberOfPages: data['number_of_pages'],
           publisher: publishers?.firstOrNull,
+          openlibraryKey: key.split('/').last,
           source: 'openlibrary',
         ),
       ];
     } else if (response.statusCode == 404) {
       return []; // Livre non trouvé sur OpenLibrary
     } else {
-      throw Exception('Failed to load book from OpenLibrary');
+      throw Exception('OpenLibrary HTTP ${response.statusCode}');
     }
   }
 
@@ -110,10 +110,11 @@ class OpenLibraryApi implements BookSearchApi {
         final publishers = (json['publisher'] as List?)
             ?.map((e) => e.toString())
             .toList();
+        final key = json['key'] as String?;
 
         return ExternalBook(
-          key: json['key'],
-          title: json['title'],
+          key: key ?? '',
+          title: json['title'] ?? 'Unknown Title',
           authorText: authors?.join(', ') ?? 'Unknown Author',
           coverUrl: coverId != null
               ? 'https://covers.openlibrary.org/b/id/$coverId-M.jpg'
@@ -122,11 +123,12 @@ class OpenLibraryApi implements BookSearchApi {
           isbns: isbns,
           numberOfPages: json['number_of_pages_median'],
           publisher: publishers?.firstOrNull,
+          openlibraryKey: key?.split('/').last,
           source: 'openlibrary',
         );
       }).toList();
     } else {
-      throw Exception('Failed to load books from OpenLibrary');
+      throw Exception('OpenLibrary HTTP ${response.statusCode}');
     }
   }
 }

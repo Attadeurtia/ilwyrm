@@ -163,13 +163,20 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           shelfName: drift.Value(_status.label),
           startDate: drift.Value(_startDate),
           finishDate: drift.Value(_finishDate),
-          openlibraryKey:
-              widget.initialBook?.key != null &&
-                  widget.initialBook!.source == 'openlibrary'
-              ? drift.Value(widget.initialBook!.key.split('/').last)
+          openlibraryKey: widget.initialBook?.openlibraryKey != null
+              ? drift.Value(widget.initialBook!.openlibraryKey)
               : const drift.Value.absent(),
-          isbn13: widget.initialBook?.isbns?.isNotEmpty == true
-              ? drift.Value(widget.initialBook!.isbns!.first)
+          inventaireId: widget.initialBook?.inventaireId != null
+              ? drift.Value(widget.initialBook!.inventaireId)
+              : const drift.Value.absent(),
+          wikidata: widget.initialBook?.wikidata != null
+              ? drift.Value(widget.initialBook!.wikidata)
+              : const drift.Value.absent(),
+          isbn13: widget.initialBook?.isbn13 != null
+              ? drift.Value(widget.initialBook!.isbn13)
+              : const drift.Value.absent(),
+          isbn10: widget.initialBook?.isbn10 != null
+              ? drift.Value(widget.initialBook!.isbn10)
               : const drift.Value.absent(),
           // We don't store coverId for non-OpenLibrary books easily unless we change schema,
           // but we can rely on coverUrl if we had a column for it, or just download it.

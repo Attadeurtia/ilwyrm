@@ -1,0 +1,341 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'bnf_api.dart';
+import 'book_search_api.dart';
+import 'google_books_api.dart';
+import 'inventaire_api.dart';
+import 'open_library_api.dart';
+
+/// Libellés d'onglets exposés à l'UI.
+const kOpenLibrary = 'OpenLibrary';
+const kBnf = 'BnF';
+const kInventaire = 'Inventaire';
+const kGoogleBooks = 'Google Books';
+
+/// Résultat agrégé d'une recherche : une liste unifiée reclassée + les listes
+/// par source (déjà reclassées) + les erreurs éventuelles par source.
+class AggregatedResults {
+  final List<ExternalBook> merged;
+  final Map<String, List<ExternalBook>> bySource;
+  final Map<String, String?> errors;
+
+  const AggregatedResults({
+    required this.merged,
+    required this.bySource,
+    required this.errors,
+  });
+
+  factory AggregatedResults.empty() => const AggregatedResults(
+        merged: [],
+        bySource: {kOpenLibrary: [], kBnf: [], kInventaire: [], kGoogleBooks: []},
+        errors: {kOpenLibrary: null, kBnf: null, kInventaire: null, kGoogleBooks: null},
+      );
+}
+
+/// Interroge OpenLibrary, la BnF, Inventaire et Google Books en parallèle, puis
+/// fusionne et reclasse les résultats côté client.
+///
+/// Le classement combine la pertinence textuelle (similarité entre la requête
+/// et « titre + auteur »), la complétude des métadonnées, une pénalité pour les
+/// ouvrages du domaine public (vieux scans peu pertinents), et un bonus de
+/// source (OpenLibrary > BnF > Inventaire > Google Books) qui départage les
+/// résultats proches. Ce reclassement est aussi appliqué à chaque onglet de
+/// source : même l'onglet Google Books n'affiche plus la pertinence brute de
+/// l'API (dominée par de vieux ouvrages), mais nos résultats reclassés.
+class BookSearchService {
+  BookSearchService({Map<String, BookSearchApi>? apis})
+      : _apis = apis ??
+            {
+              kOpenLibrary: OpenLibraryApi(),
+              kBnf: BnfApi(),
+              kInventaire: InventaireApi(),
+              kGoogleBooks: GoogleBooksApi(),
+            };
+
+  final Map<String, BookSearchApi> _apis;
+
+  static const Duration _timeout = Duration(seconds: 8);
+
+  /// Bonus additif appliqué au score selon la source (départage à pertinence
+  /// égale ; ne prime jamais sur une meilleure correspondance textuelle).
+  static const Map<String, double> _sourceBoost = {
+    'openlibrary': 0.15,
+    'bnf': 0.13,
+    'inventaire': 0.10,
+    'google_books': 0.0,
+  };
+
+  /// Rang de source pour choisir la fiche « de base » lors d'une fusion.
+  static const Map<String, int> _sourceRank = {
+    'openlibrary': 4,
+    'bnf': 3,
+    'inventaire': 2,
+    'google_books': 1,
+  };
+
+  Future<AggregatedResults> search(String query,
+      {bool authorSearch = false}) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return AggregatedResults.empty();
+
+    final bySource = <String, List<ExternalBook>>{
+      kOpenLibrary: [],
+      kBnf: [],
+      kInventaire: [],
+      kGoogleBooks: [],
+    };
+    final errors = <String, String?>{
+      kOpenLibrary: null,
+      kBnf: null,
+      kInventaire: null,
+      kGoogleBooks: null,
+    };
+
+    await Future.wait(_apis.entries.map((entry) async {
+      final label = entry.key;
+      final q = _effectiveQuery(label, trimmed, authorSearch);
+      try {
+        final books = await entry.value.searchBooks(q).timeout(_timeout);
+        // Reclasse aussi chaque onglet de source avec notre scorer.
+        books.sort((a, b) => _score(b, trimmed).compareTo(_score(a, trimmed)));
+        bySource[label] = books;
+      } on TimeoutException {
+        errors[label] = 'Délai dépassé';
+      } catch (e) {
+        errors[label] = _friendlyError(e);
+      }
+    }));
+
+    // Ordre d'entrée = priorité de source, pour que la fiche « de base » d'un
+    // doublon vienne de la source la plus fiable.
+    final all = <ExternalBook>[
+      ...bySource[kOpenLibrary]!,
+      ...bySource[kBnf]!,
+      ...bySource[kInventaire]!,
+      ...bySource[kGoogleBooks]!,
+    ];
+
+    return AggregatedResults(
+      merged: _mergeAndRank(all, trimmed),
+      bySource: bySource,
+      errors: errors,
+    );
+  }
+
+  String _effectiveQuery(String label, String query, bool authorSearch) {
+    if (!authorSearch) return query;
+    switch (label) {
+      case kOpenLibrary:
+        return 'author:$query';
+      case kGoogleBooks:
+        return 'inauthor:$query';
+      default:
+        return query; // BnF / Inventaire trouvent les auteurs sans préfixe
+    }
+  }
+
+  String _friendlyError(Object e) {
+    final s = e.toString();
+    if (s.contains('429')) return 'Quota API dépassé';
+    if (s.contains('403')) return 'Accès refusé';
+    return 'Indisponible';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Fusion + classement
+  // ---------------------------------------------------------------------------
+
+  List<ExternalBook> _mergeAndRank(List<ExternalBook> all, String query) {
+    final clusters = <ExternalBook>[];
+    final byIsbn = <String, int>{};
+    final byTitleAuthor = <String, int>{};
+
+    for (final book in all) {
+      final isbnKeys = _isbnKeys(book);
+      int? idx;
+      for (final k in isbnKeys) {
+        final hit = byIsbn[k];
+        if (hit != null) {
+          idx = hit;
+          break;
+        }
+      }
+      final taKey = _titleAuthorKey(book);
+      idx ??= taKey != null ? byTitleAuthor[taKey] : null;
+
+      if (idx == null) {
+        clusters.add(book);
+        final i = clusters.length - 1;
+        for (final k in isbnKeys) {
+          byIsbn[k] = i;
+        }
+        if (taKey != null) byTitleAuthor[taKey] = i;
+      } else {
+        final merged = _merge(clusters[idx], book);
+        clusters[idx] = merged;
+        for (final k in _isbnKeys(merged)) {
+          byIsbn[k] = idx;
+        }
+        final mergedKey = _titleAuthorKey(merged);
+        if (mergedKey != null) byTitleAuthor[mergedKey] = idx;
+      }
+    }
+
+    clusters.sort((a, b) => _score(b, query).compareTo(_score(a, query)));
+    return clusters;
+  }
+
+  List<String> _isbnKeys(ExternalBook b) => (b.isbns ?? const [])
+      .map(cleanIsbn)
+      .where((e) => e.length == 10 || e.length == 13)
+      .toList();
+
+  /// Clé titre+auteur, uniquement si l'auteur est connu (sinon on ne fusionne
+  /// que par ISBN, pour éviter de fondre deux livres homonymes).
+  String? _titleAuthorKey(ExternalBook b) {
+    if (!_isKnownAuthor(b.authorText)) return null;
+    final title = _norm(b.title);
+    if (title.isEmpty) return null;
+    // Tokens d'auteur triés → tolère « Cixin Liu » vs « Liu Cixin ».
+    final authorTokens =
+        _norm(b.authorText).split(' ').where((e) => e.isNotEmpty).toList()..sort();
+    return '$title::${authorTokens.join(' ')}';
+  }
+
+  ExternalBook _merge(ExternalBook a, ExternalBook b) {
+    final base = _rank(a) >= _rank(b) ? a : b;
+    final other = identical(base, a) ? b : a;
+    final isbns =
+        <String>{...?a.isbns, ...?b.isbns}.where((e) => e.isNotEmpty).toList();
+
+    return base.copyWith(
+      authorText: _bestAuthor(base.authorText, other.authorText),
+      coverUrl: base.coverUrl ?? other.coverUrl,
+      firstPublishYear: base.firstPublishYear ?? other.firstPublishYear,
+      numberOfPages: base.numberOfPages ?? other.numberOfPages,
+      publisher: base.publisher ?? other.publisher,
+      isbns: isbns.isEmpty ? null : isbns,
+      description: base.description ?? other.description,
+      wikidata: base.wikidata ?? other.wikidata,
+      inventaireId: base.inventaireId ?? other.inventaireId,
+      openlibraryKey: base.openlibraryKey ?? other.openlibraryKey,
+      bnfId: base.bnfId ?? other.bnfId,
+      publicDomain: base.publicDomain && other.publicDomain,
+      sources: {...base.sources, ...other.sources},
+    );
+  }
+
+  /// Choisit le meilleur auteur : privilégie une graphie latine connue, puis un
+  /// auteur connu, sinon garde celui de la fiche de base.
+  String _bestAuthor(String base, String other) {
+    final baseLatin = _isKnownLatinAuthor(base);
+    final otherLatin = _isKnownLatinAuthor(other);
+    if (baseLatin) return base;
+    if (otherLatin) return other;
+    if (_isKnownAuthor(base)) return base;
+    if (_isKnownAuthor(other)) return other;
+    return base;
+  }
+
+  int _rank(ExternalBook b) => _sourceRank[b.source] ?? 0;
+
+  double _score(ExternalBook b, String query) {
+    final q = _scoreTitle(query);
+    final title = _scoreTitle(b.title);
+    final combined = '$title ${_norm(b.authorText)}'.trim();
+
+    double s = _coverage(q, combined) * 0.6 + _coverage(q, title) * 0.4;
+
+    if (title == q) {
+      s += 0.5;
+    } else if (title.startsWith(q)) {
+      s += 0.3;
+    } else if (title.contains(q)) {
+      s += 0.15;
+    }
+
+    if (b.coverUrl != null) s += 0.05;
+    if (b.isbns?.isNotEmpty ?? false) s += 0.05;
+    if (b.firstPublishYear != null) s += 0.03;
+    if (_isKnownAuthor(b.authorText)) {
+      s += 0.03;
+      // Préférence pour une graphie latine de l'auteur (ex. « Liu Cixin »
+      // plutôt que « 刘慈欣 ») quand deux fiches du même livre coexistent.
+      if (_isKnownLatinAuthor(b.authorText)) s += 0.04;
+    }
+
+    // Pénalise les vieux ouvrages obscurs (scans du domaine public).
+    if (b.publicDomain) s -= 0.6;
+    final year = b.firstPublishYear;
+    if (year != null && year < 1900) s -= 0.3;
+
+    double boost = 0;
+    for (final src in b.sources) {
+      boost = max(boost, _sourceBoost[src] ?? 0);
+    }
+    s += boost;
+
+    // Léger bonus si plusieurs sources concordent sur ce livre.
+    if (b.sources.length > 1) s += 0.05;
+
+    return s;
+  }
+
+  /// Couverture : fraction des tokens de la requête présents dans [text]
+  /// (0 → 1). Asymétrique, pour ne pas pénaliser les tokens d'auteur/titre
+  /// supplémentaires (ex. un auteur en graphie latine « ci xin liu »).
+  double _coverage(String query, String text) {
+    final q = query.split(' ').where((e) => e.isNotEmpty).toSet();
+    if (q.isEmpty) return 0;
+    final t = text.split(' ').where((e) => e.isNotEmpty).toSet();
+    return q.intersection(t).length / q.length;
+  }
+
+  bool _isKnownAuthor(String a) {
+    final n = a.trim().toLowerCase();
+    return n.isNotEmpty && n != 'unknown author';
+  }
+
+  /// Détecte les scripts non latins (CJK, etc.) pour préférer une graphie latine.
+  static final RegExp _nonLatin =
+      RegExp(r'[぀-ヿ㐀-䶿一-鿿가-힯Ѐ-ӿ؀-ۿ]');
+
+  bool _isKnownLatinAuthor(String a) =>
+      _isKnownAuthor(a) && !_nonLatin.hasMatch(a);
+
+  static const Map<String, String> _accents = {
+    'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a', 'ã': 'a', 'å': 'a',
+    'ç': 'c',
+    'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+    'ì': 'i', 'î': 'i', 'ï': 'i', 'í': 'i',
+    'ò': 'o', 'ô': 'o', 'ö': 'o', 'ó': 'o', 'õ': 'o',
+    'ù': 'u', 'û': 'u', 'ü': 'u', 'ú': 'u',
+    'ñ': 'n', 'ÿ': 'y', 'œ': 'oe', 'æ': 'ae', 'ß': 'ss',
+  };
+
+  /// Normalise pour comparaison : minuscules, sans accents, sans ponctuation.
+  String _norm(String s) {
+    var out = s.toLowerCase();
+    _accents.forEach((k, v) => out = out.replaceAll(k, v));
+    out = out.replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
+    out = out.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return out;
+  }
+
+  /// Normalise un titre pour le SCORING uniquement (pas pour le dédoublonnage) :
+  /// retire les marqueurs de genre ajoutés par les catalogues (« roman »,
+  /// « récit »…) et les numéros de tome, pour qu'une édition « Titre : roman.
+  /// 1 » corresponde à la requête « Titre ».
+  String _scoreTitle(String s) {
+    var t = _norm(s);
+    t = t.replaceAll(
+        RegExp(r'\b(roman|recit|recits|nouvelle|nouvelles|essai|integrale|edition)\b'), ' ');
+    t = t.replaceAll(RegExp(r'\btome\s*\d+\b'), ' ');
+    t = t.replaceAll(RegExp(r'\bvol(ume)?\s*\d+\b'), ' ');
+    t = t.replaceAll(RegExp(r'\bt\s*\d+\b'), ' ');
+    t = t.replaceAll(RegExp(r'\s+\d+\s*$'), ' '); // numéro de tome isolé en fin
+    t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return t;
+  }
+}

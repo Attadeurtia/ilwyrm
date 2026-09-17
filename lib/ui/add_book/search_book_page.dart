@@ -1,12 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../../data/book_search_api.dart';
-import '../../data/google_books_api.dart';
-import '../../data/inventaire_api.dart';
-import '../../data/open_library_api.dart';
-import 'edit_book_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' as drift;
+
+import '../../data/book_companion_mapper.dart';
+import '../../data/book_search_api.dart';
+import '../../data/book_search_service.dart';
 import '../../data/database.dart';
+import 'edit_book_page.dart';
 
 class SearchBookPage extends ConsumerStatefulWidget {
   final String? initialQuery;
@@ -25,133 +26,95 @@ class SearchBookPage extends ConsumerStatefulWidget {
 class _SearchBookPageState extends ConsumerState<SearchBookPage>
     with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
+  final BookSearchService _service = BookSearchService();
   late TabController _tabController;
+  Timer? _debounce;
 
-  final Map<String, BookSearchApi> _apis = {
-    'OpenLibrary': OpenLibraryApi(),
-    'Google Books': GoogleBooksApi(),
-    'Inventaire': InventaireApi(),
+  static const Duration _debounceDelay = Duration(milliseconds: 400);
+  static const int _minChars = 2;
+
+  static const List<String> _sourceTabs = [
+    kOpenLibrary,
+    kBnf,
+    kInventaire,
+    kGoogleBooks,
+  ];
+
+  static const Map<String, String> _sourceBadges = {
+    'openlibrary': 'OL',
+    'bnf': 'BnF',
+    'inventaire': 'Inventaire',
+    'google_books': 'Google',
   };
 
-  final Map<String, List<ExternalBook>> _results = {
-    'OpenLibrary': [],
-    'Google Books': [],
-    'Inventaire': [],
-  };
-
-  final Map<String, bool> _isLoading = {
-    'OpenLibrary': false,
-    'Google Books': false,
-    'Inventaire': false,
-  };
-
-  final Map<String, String?> _errors = {
-    'OpenLibrary': null,
-    'Google Books': null,
-    'Inventaire': null,
-  };
+  AggregatedResults _results = AggregatedResults.empty();
+  bool _loading = false;
+  int _searchSeq = 0;
+  String _lastSubmitted = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    if (widget.initialQuery != null) {
+    _tabController = TabController(length: 5, vsync: this);
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _controller.text = widget.initialQuery!;
-      _searchAll();
+      _runSearch(widget.initialQuery!);
     }
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _tabController.dispose();
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _searchAll() async {
-    final query = _controller.text.trim();
-    if (query.isEmpty) return;
-
-    // Trigger search for all APIs
-    // In a more complex app, we might want to only search the active tab
-    // and cache others, or search all. Searching all is fine for now.
-    for (final source in _apis.keys) {
-      _searchSource(source, query);
+  void _onChanged(String value) {
+    _debounce?.cancel();
+    final query = value.trim();
+    if (query.length < _minChars) {
+      _debounce?.cancel();
+      setState(() {
+        _results = AggregatedResults.empty();
+        _loading = false;
+        _lastSubmitted = '';
+      });
+      return;
     }
+    _debounce = Timer(_debounceDelay, () => _runSearch(query));
   }
 
-  Future<void> _searchSource(String source, String query) async {
-    setState(() {
-      _isLoading[source] = true;
-      _errors[source] = null;
-    });
+  Future<void> _runSearch(String rawQuery) async {
+    final query = rawQuery.trim();
+    if (query.isEmpty) return;
+    _lastSubmitted = query;
+
+    final seq = ++_searchSeq;
+    setState(() => _loading = true);
 
     try {
-      String effectiveQuery = query;
-      if (widget.isAuthorSearch) {
-        if (source == 'OpenLibrary') {
-          effectiveQuery = 'author:$query';
-        } else if (source == 'Google Books') {
-          effectiveQuery = 'inauthor:$query';
-        }
-        // Inventaire doesn't strictly need a prefix, regular search usually finds authors too
-      }
-
-      final books = await _apis[source]!.searchBooks(effectiveQuery);
-      if (mounted) {
-        setState(() {
-          _results[source] = books;
-        });
-      }
+      final results = await _service.search(
+        query,
+        authorSearch: widget.isAuthorSearch,
+      );
+      if (!mounted || seq != _searchSeq) return; // réponse périmée
+      setState(() {
+        _results = results;
+        _loading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errors[source] = e.toString();
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading[source] = false;
-        });
-      }
+      if (!mounted || seq != _searchSeq) return;
+      setState(() => _loading = false);
     }
   }
 
   Future<void> _quickAddBook(ExternalBook book) async {
     final database = ref.read(databaseProvider);
-    final newBook = BooksCompanion(
-      title: drift.Value(book.title),
-      authorText: drift.Value(book.authorText),
-      publisher: book.publisher != null
-          ? drift.Value(book.publisher)
-          : const drift.Value.absent(),
-      publicationYear: book.firstPublishYear != null
-          ? drift.Value(book.firstPublishYear)
-          : const drift.Value.absent(),
-      pageCount: book.numberOfPages != null
-          ? drift.Value(book.numberOfPages)
-          : const drift.Value.absent(),
-      shelf: const drift.Value('to_read'),
-      shelfName: const drift.Value('À lire'),
-      openlibraryKey: book.key.isNotEmpty && book.source == 'openlibrary'
-          ? drift.Value(book.key.split('/').last)
-          : const drift.Value.absent(),
-      isbn13: book.isbns?.isNotEmpty == true
-          ? drift.Value(book.isbns!.first)
-          : const drift.Value.absent(),
-      coverUrl: book.coverUrl != null
-          ? drift.Value(book.coverUrl)
-          : const drift.Value.absent(),
-      dateAdded: drift.Value(DateTime.now()),
-      dateModified: drift.Value(DateTime.now()),
-    );
-
-    await database.into(database.books).insert(newBook);
-
+    await database.into(database.books).insert(book.toBooksCompanion());
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Livre ajouté à la liste de lecture !')),
+        SnackBar(content: Text('« ${book.title} » ajouté à la liste !')),
       );
     }
   }
@@ -163,14 +126,25 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
         title: TextField(
           controller: _controller,
           autofocus: true,
+          textInputAction: TextInputAction.search,
           decoration: const InputDecoration(
             hintText: 'Titre, auteur, ISBN...',
             border: InputBorder.none,
           ),
-          onSubmitted: (_) => _searchAll(),
+          onChanged: _onChanged,
+          onSubmitted: (value) {
+            _debounce?.cancel();
+            _runSearch(value);
+          },
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: _searchAll),
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              _debounce?.cancel();
+              _runSearch(_controller.text);
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'Ajouter manuellement',
@@ -182,76 +156,169 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
             },
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'OpenLibrary'),
-            Tab(text: 'Google Books'),
-            Tab(text: 'Inventaire'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48 + 4),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 4,
+                child: _loading
+                    ? const LinearProgressIndicator(minHeight: 4)
+                    : null,
+              ),
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: const [
+                  Tab(text: 'Tous'),
+                  Tab(text: 'OpenLibrary'),
+                  Tab(text: 'BnF'),
+                  Tab(text: 'Inventaire'),
+                  Tab(text: 'Google Books'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildResultList('OpenLibrary'),
-          _buildResultList('Google Books'),
-          _buildResultList('Inventaire'),
+          _buildMergedList(),
+          for (final source in _sourceTabs) _buildSourceList(source),
         ],
       ),
     );
   }
 
-  Widget _buildResultList(String source) {
-    if (_isLoading[source] == true) {
-      return const Center(child: CircularProgressIndicator());
+  Widget _buildMergedList() {
+    final books = _results.merged;
+    if (books.isEmpty) {
+      return _emptyState(anyError: _results.errors.values.any((e) => e != null));
     }
-
-    if (_errors[source] != null) {
-      return Center(child: Text('Erreur: ${_errors[source]}'));
-    }
-
-    final books = _results[source] ?? [];
-
-    if (books.isEmpty && _controller.text.isNotEmpty) {
-      return const Center(child: Text('Aucun résultat trouvé.'));
-    } else if (books.isEmpty) {
-      return const Center(child: Text('Entrez une recherche.'));
-    }
-
     return ListView.builder(
       itemCount: books.length,
-      itemBuilder: (context, index) {
-        final book = books[index];
-        return ListTile(
-          leading: book.coverUrl != null
-              ? Image.network(
-                  book.coverUrl!,
-                  width: 50,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.book, size: 50),
-                )
-              : const Icon(Icons.book, size: 50),
-          title: Text(book.title),
-          subtitle: Text(
-            '${book.authorText} (${book.firstPublishYear ?? "?"})',
+      itemBuilder: (context, index) => _bookTile(books[index], showBadges: true),
+    );
+  }
+
+  Widget _buildSourceList(String source) {
+    final error = _results.errors[source];
+    if (error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('$source : $error', textAlign: TextAlign.center),
+        ),
+      );
+    }
+    final books = _results.bySource[source] ?? const [];
+    if (books.isEmpty) return _emptyState();
+    return ListView.builder(
+      itemCount: books.length,
+      itemBuilder: (context, index) => _bookTile(books[index]),
+    );
+  }
+
+  Widget _emptyState({bool anyError = false}) {
+    final String message;
+    if (_loading) {
+      message = 'Recherche…';
+    } else if (_lastSubmitted.isEmpty) {
+      message = 'Entrez un titre, un auteur ou un ISBN.';
+    } else if (anyError) {
+      message = 'Aucun résultat (certaines sources sont indisponibles).';
+    } else {
+      message = 'Aucun résultat trouvé.';
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(message, textAlign: TextAlign.center),
+      ),
+    );
+  }
+
+  Widget _bookTile(ExternalBook book, {bool showBadges = false}) {
+    final year = book.firstPublishYear?.toString() ?? '?';
+    final hasAuthor = book.authorText.trim().isNotEmpty &&
+        book.authorText.trim().toLowerCase() != 'unknown author';
+    final subtitleParts = <String>[
+      if (hasAuthor) book.authorText else if (book.description != null) book.description!,
+    ];
+
+    return ListTile(
+      leading: SizedBox(
+        width: 44,
+        height: 64,
+        child: book.coverUrl != null
+            ? Image.network(
+                book.coverUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.book, size: 40),
+              )
+            : const Icon(Icons.book, size: 40),
+      ),
+      title: Text(book.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            subtitleParts.isEmpty ? '($year)' : '${subtitleParts.first} ($year)',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          trailing: IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Ajouter à la liste de lecture',
-            onPressed: () => _quickAddBook(book),
+          if (showBadges) _sourceBadgeRow(book.sources),
+        ],
+      ),
+      isThreeLine: showBadges,
+      trailing: IconButton(
+        icon: const Icon(Icons.add),
+        tooltip: 'Ajouter à la liste de lecture',
+        onPressed: () => _quickAddBook(book),
+      ),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EditBookPage(initialBook: book),
           ),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => EditBookPage(initialBook: book),
-              ),
-            );
-          },
         );
       },
+    );
+  }
+
+  Widget _sourceBadgeRow(Set<String> sources) {
+    final labels = sources
+        .map((s) => _sourceBadges[s] ?? s)
+        .toList()
+      ..sort();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Wrap(
+        spacing: 6,
+        children: [
+          for (final label in labels)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .secondaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
