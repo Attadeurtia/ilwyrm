@@ -188,4 +188,41 @@ void main() {
     final res = await _service().search('   ');
     expect(res.merged, isEmpty);
   });
+
+  test('à pertinence égale, l’édition dans la langue de l’app passe devant',
+      () async {
+    // Deux œuvres au titre distinct (donc non fusionnées) : l'édition française
+    // doit être classée avant l'édition d'origine anglaise.
+    final ol = [
+      ExternalBook(
+        key: 'en',
+        title: 'Sapiens: A Brief History of Humankind',
+        authorText: 'Yuval Noah Harari',
+        firstPublishYear: 2011,
+        language: 'en',
+        source: 'openlibrary',
+      ),
+      ExternalBook(
+        key: 'fr',
+        title: 'Sapiens : Une brève histoire de l’humanité',
+        authorText: 'Yuval Noah Harari',
+        firstPublishYear: 2011,
+        language: 'fr',
+        source: 'openlibrary',
+      ),
+    ];
+    final res = await _service(ol: ol).search('sapiens');
+    expect(res.merged.length, 2, reason: 'titres différents → non fusionnés');
+    expect(res.merged.first.key, 'fr');
+  });
+
+  test('normalizeLanguage mappe les codes/libellés vers un code court', () {
+    expect(normalizeLanguage('fre'), 'fr');
+    expect(normalizeLanguage('français'), 'fr');
+    expect(normalizeLanguage('FR'), 'fr');
+    expect(normalizeLanguage('eng'), 'en');
+    expect(normalizeLanguage('anglais'), 'en');
+    expect(normalizeLanguage(null), isNull);
+    expect(normalizeLanguage(''), isNull);
+  });
 }

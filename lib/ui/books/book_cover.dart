@@ -22,11 +22,16 @@ class BookCover extends StatelessWidget {
   /// Petits contextes (vignette de liste) : placeholder texte réduit.
   final bool compact;
 
+  /// Ajustement de l'image. `cover` (défaut) pour remplir une vignette ;
+  /// `contain` pour l'aperçu plein écran (couverture entière, sans rognage).
+  final BoxFit fit;
+
   const BookCover({
     super.key,
     required this.book,
     this.borderRadius = 8,
     this.compact = false,
+    this.fit = BoxFit.cover,
   });
 
   String _withDefaultFalse(String url) {
@@ -68,7 +73,7 @@ class BookCover extends StatelessWidget {
     if (index >= urls.length) return _fallback(context);
     return CachedNetworkImage(
       imageUrl: urls[index],
-      fit: BoxFit.cover,
+      fit: fit,
       width: double.infinity,
       height: double.infinity,
       fadeInDuration: const Duration(milliseconds: 150),

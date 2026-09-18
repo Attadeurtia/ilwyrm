@@ -17,13 +17,39 @@ import '../../data/enums.dart';
 class BookDetailsPage extends ConsumerWidget {
   final int bookId;
 
-  const BookDetailsPage({super.key, required this.bookId});
+  /// Livre déjà connu de l'appelant (grille/liste). Utilisé comme donnée
+  /// initiale : la couverture (Hero) est ainsi présente dès la 1re frame, sinon
+  /// la page affiche d'abord un spinner et la transition Hero « aller » (grille
+  /// → fiche) ne se déclenche pas.
+  final Book? initialBook;
+
+  const BookDetailsPage({super.key, required this.bookId, this.initialBook});
+
+  /// Vrai s'il y a une vraie couverture à afficher (sinon on ne propose pas le
+  /// plein écran, qui n'aurait qu'un placeholder).
+  bool _hasCover(Book book) =>
+      (book.coverUrl != null && book.coverUrl!.trim().isNotEmpty) ||
+      book.coverId != null ||
+      (book.openlibraryKey != null && book.openlibraryKey!.trim().isNotEmpty);
+
+  void _openFullscreenCover(BuildContext context, Book book) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (context, _, _) => _FullscreenCoverPage(book: book),
+        transitionsBuilder: (context, animation, _, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(booksRepositoryProvider);
 
     return StreamBuilder<Book>(
+      initialData: initialBook,
       stream: repository.watchBook(bookId),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -122,26 +148,31 @@ class BookDetailsPage extends ConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Cover Image
-                    Hero(
-                      tag: 'book_cover_${book.id}',
-                      child: Container(
-                        width: 140,
-                        height: 210,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.shadow.withValues(alpha: 0.2),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
+                    // Cover Image — tap pour l'afficher en plein écran.
+                    GestureDetector(
+                      onTap: _hasCover(book)
+                          ? () => _openFullscreenCover(context, book)
+                          : null,
+                      child: Hero(
+                        tag: 'book_cover_${book.id}',
+                        child: Container(
+                          width: 140,
+                          height: 210,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.shadow.withValues(alpha: 0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: BookCover(book: book, borderRadius: 16),
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: BookCover(book: book, borderRadius: 16),
                       ),
                     ),
                     const SizedBox(width: 24),
@@ -378,7 +409,8 @@ class _AuthorBooksList extends ConsumerWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => BookDetailsPage(bookId: book.id),
+                        builder: (context) =>
+                            BookDetailsPage(bookId: book.id, initialBook: book),
                       ),
                     );
                   },
@@ -733,6 +765,55 @@ class _BookMetadataTable extends StatelessWidget {
           }).toList(),
         ),
       ],
+    );
+  }
+}
+
+/// Aperçu plein écran de la couverture, avec zoom/déplacement (InteractiveViewer)
+/// et transition Hero partagée avec la fiche. On ferme par tap, bouton ✕ ou
+/// retour système.
+class _FullscreenCoverPage extends StatelessWidget {
+  final Book book;
+
+  const _FullscreenCoverPage({required this.book});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: () => Navigator.of(context).maybePop(),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Center(
+                  // Pas de Hero ici : le plein écran est une action propre à la
+                  // page détaillée, indépendante de la transition depuis la
+                  // grille (« le menu »).
+                  child: BookCover(
+                    book: book,
+                    fit: BoxFit.contain,
+                    borderRadius: 0,
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  tooltip: 'Fermer',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

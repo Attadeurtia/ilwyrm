@@ -301,7 +301,7 @@ class BookListView extends ConsumerWidget {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) =>
-                                        BookDetailsPage(bookId: book.id),
+                                        BookDetailsPage(bookId: book.id, initialBook: book),
                                   ),
                                 );
                               }
@@ -365,7 +365,7 @@ class BookListView extends ConsumerWidget {
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) =>
-                                      BookDetailsPage(bookId: book.id),
+                                      BookDetailsPage(bookId: book.id, initialBook: book),
                                 ),
                               );
                             }

@@ -84,7 +84,8 @@ class LocalSearchDelegate extends SearchDelegate<Book?> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => BookDetailsPage(bookId: book.id),
+                    builder: (context) =>
+                        BookDetailsPage(bookId: book.id, initialBook: book),
                   ),
                 );
               },

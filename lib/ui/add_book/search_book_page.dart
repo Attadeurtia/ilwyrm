@@ -7,6 +7,8 @@ import '../../data/book_companion_mapper.dart';
 import '../../data/book_search_api.dart';
 import '../../data/book_search_service.dart';
 import '../../data/database.dart';
+import '../../data/library_index.dart';
+import '../books/bookshelf_detail_page.dart';
 import 'edit_book_page.dart';
 
 class SearchBookPage extends ConsumerStatefulWidget {
@@ -29,6 +31,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
   final BookSearchService _service = BookSearchService();
   late TabController _tabController;
   Timer? _debounce;
+  Timer? _snackTimer;
 
   static const Duration _debounceDelay = Duration(milliseconds: 400);
   static const int _minChars = 2;
@@ -65,6 +68,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
   @override
   void dispose() {
     _debounce?.cancel();
+    _snackTimer?.cancel();
     _tabController.dispose();
     _controller.dispose();
     super.dispose();
@@ -111,12 +115,56 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
 
   Future<void> _quickAddBook(ExternalBook book) async {
     final database = ref.read(databaseProvider);
-    await database.into(database.books).insert(book.toBooksCompanion());
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('« ${book.title} » ajouté à la liste !')),
+
+    // Vérification anti-doublon faisant autorité : on relit la bibliothèque et
+    // on applique la même détection (ISBN, identifiants, titre+auteur). Ainsi,
+    // même si l'affichage n'est pas encore à jour, on n'insère jamais un
+    // doublon.
+    final existingId = buildLibraryIndex(await database.getAllBooks()).findId(book);
+    if (!mounted) return;
+    if (existingId != null) {
+      _showSnack(
+        'Ce livre est déjà dans la bibliothèque.',
+        goToBookId: existingId,
       );
+      return;
     }
+
+    final id =
+        await database.into(database.books).insert(book.toBooksCompanion());
+    if (!mounted) return;
+    _showSnack('« ${book.title} » ajouté à la liste !', goToBookId: id);
+  }
+
+  /// Affiche un message éphémère (auto-masqué après quelques secondes) avec un
+  /// lien « Y aller » vers la fiche du livre.
+  void _showSnack(String message, {required int goToBookId}) {
+    const duration = Duration(seconds: 3);
+    final messenger = ScaffoldMessenger.of(context);
+    _snackTimer?.cancel();
+    messenger.clearSnackBars();
+    final controller = messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: duration,
+        action: SnackBarAction(
+          label: 'Y aller',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BookDetailsPage(bookId: goToBookId),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    // Filet de sécurité : on force la fermeture après la durée. Le minuteur
+    // interne du SnackBar ne se déclenche pas de façon fiable ici (la liste se
+    // reconstruit au moment de l'ajout), donc on ferme nous-mêmes cette
+    // instance précise.
+    _snackTimer = Timer(duration, controller.close);
   }
 
   @override
@@ -182,28 +230,39 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildMergedList(),
-          for (final source in _sourceTabs) _buildSourceList(source),
-        ],
+      // On ne réabonne que la LISTE à l'index des doublons : l'AppBar et le champ
+      // de recherche restent stables (sinon leurs reconstructions perturbent le
+      // clavier et le minuteur du SnackBar).
+      body: Consumer(
+        builder: (context, ref, _) {
+          final libraryIndex =
+              ref.watch(libraryIndexProvider).value ?? LibraryIndex.empty;
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _buildMergedList(libraryIndex),
+              for (final source in _sourceTabs)
+                _buildSourceList(source, libraryIndex),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildMergedList() {
+  Widget _buildMergedList(LibraryIndex libraryIndex) {
     final books = _results.merged;
     if (books.isEmpty) {
       return _emptyState(anyError: _results.errors.values.any((e) => e != null));
     }
     return ListView.builder(
       itemCount: books.length,
-      itemBuilder: (context, index) => _bookTile(books[index], showBadges: true),
+      itemBuilder: (context, index) =>
+          _bookTile(books[index], libraryIndex, showBadges: true),
     );
   }
 
-  Widget _buildSourceList(String source) {
+  Widget _buildSourceList(String source, LibraryIndex libraryIndex) {
     final error = _results.errors[source];
     if (error != null) {
       return Center(
@@ -217,7 +276,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
     if (books.isEmpty) return _emptyState();
     return ListView.builder(
       itemCount: books.length,
-      itemBuilder: (context, index) => _bookTile(books[index]),
+      itemBuilder: (context, index) => _bookTile(books[index], libraryIndex),
     );
   }
 
@@ -240,13 +299,18 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
     );
   }
 
-  Widget _bookTile(ExternalBook book, {bool showBadges = false}) {
+  Widget _bookTile(ExternalBook book, LibraryIndex libraryIndex,
+      {bool showBadges = false}) {
     final year = book.firstPublishYear?.toString() ?? '?';
     final hasAuthor = book.authorText.trim().isNotEmpty &&
         book.authorText.trim().toLowerCase() != 'unknown author';
     final subtitleParts = <String>[
       if (hasAuthor) book.authorText else if (book.description != null) book.description!,
     ];
+
+    final existingId = libraryIndex.findId(book);
+    final inLibrary = existingId != null;
+    final showChips = showBadges || inLibrary;
 
     return ListTile(
       leading: SizedBox(
@@ -270,53 +334,101 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          if (showBadges) _sourceBadgeRow(book.sources),
+          if (showChips)
+            _badgesRow(
+              inLibrary: inLibrary,
+              sources: showBadges ? book.sources : const {},
+            ),
         ],
       ),
-      isThreeLine: showBadges,
-      trailing: IconButton(
-        icon: const Icon(Icons.add),
-        tooltip: 'Ajouter à la liste de lecture',
-        onPressed: () => _quickAddBook(book),
-      ),
+      isThreeLine: showChips,
+      trailing: inLibrary
+          ? Tooltip(
+              message: 'Déjà dans la bibliothèque',
+              child: Icon(
+                Icons.check_circle,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            )
+          : IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Ajouter à la liste de lecture',
+              onPressed: () => _quickAddBook(book),
+            ),
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EditBookPage(initialBook: book),
-          ),
-        );
+        if (inLibrary) {
+          // Déjà présent : on ouvre la fiche existante plutôt que d'en créer un
+          // doublon.
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BookDetailsPage(bookId: existingId),
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EditBookPage(initialBook: book),
+            ),
+          );
+        }
       },
     );
   }
 
-  Widget _sourceBadgeRow(Set<String> sources) {
-    final labels = sources
-        .map((s) => _sourceBadges[s] ?? s)
-        .toList()
+  Widget _badgesRow({required bool inLibrary, required Set<String> sources}) {
+    final scheme = Theme.of(context).colorScheme;
+    final sourceLabels = sources.map((s) => _sourceBadges[s] ?? s).toList()
       ..sort();
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Wrap(
         spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          for (final label in labels)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .secondaryContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                ),
-              ),
+          if (inLibrary)
+            _badge(
+              'Déjà dans la bibliothèque',
+              background: scheme.primaryContainer,
+              foreground: scheme.onPrimaryContainer,
+              icon: Icons.check,
             ),
+          for (final label in sourceLabels)
+            _badge(
+              label,
+              background: scheme.secondaryContainer,
+              foreground: scheme.onSecondaryContainer,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _badge(
+    String label, {
+    required Color background,
+    required Color foreground,
+    IconData? icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: foreground),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: foreground),
+          ),
         ],
       ),
     );

@@ -90,6 +90,7 @@ class BnfApi implements BookSearchApi {
         isbns: isbn != null ? [isbn] : null,
         publisher: publisher,
         bnfId: bnfId,
+        language: normalizeLanguage(_firstTag(data, 'dc:language')),
         source: 'bnf',
       ));
     }
