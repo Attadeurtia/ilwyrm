@@ -67,6 +67,11 @@ class OpenLibraryApi implements BookSearchApi {
 
       final key = data['key'] as String? ?? '/isbn/$clean';
 
+      final languages = data['languages'] as List?;
+      final langCode = (languages != null && languages.isNotEmpty)
+          ? (languages.first['key'] as String?)?.split('/').last
+          : null;
+
       return [
         ExternalBook(
           key: key,
@@ -78,6 +83,7 @@ class OpenLibraryApi implements BookSearchApi {
           numberOfPages: data['number_of_pages'],
           publisher: publishers?.firstOrNull,
           openlibraryKey: key.split('/').last,
+          language: normalizeLanguage(langCode),
           source: 'openlibrary',
         ),
       ];
@@ -91,7 +97,7 @@ class OpenLibraryApi implements BookSearchApi {
   /// Recherche textuelle générique
   Future<List<ExternalBook>> _searchByText(String query) async {
     final url = Uri.parse(
-      '$_baseUrl/search.json?q=${Uri.encodeComponent(query)}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,publisher&limit=20',
+      '$_baseUrl/search.json?q=${Uri.encodeComponent(query)}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,publisher,language&limit=20',
     );
 
     final response = await http.get(url);
@@ -110,6 +116,14 @@ class OpenLibraryApi implements BookSearchApi {
         final publishers = (json['publisher'] as List?)
             ?.map((e) => e.toString())
             .toList();
+        // `language` de search.json est au niveau œuvre (peut lister plusieurs
+        // langues d'éditions) : on ne s'y fie que s'il n'y en a qu'une, sinon on
+        // ne peut pas savoir la langue de CE résultat.
+        final languages = (json['language'] as List?)
+            ?.map((e) => e.toString())
+            .toList();
+        final singleLanguage =
+            (languages != null && languages.length == 1) ? languages.first : null;
         final key = json['key'] as String?;
 
         return ExternalBook(
@@ -124,6 +138,7 @@ class OpenLibraryApi implements BookSearchApi {
           numberOfPages: json['number_of_pages_median'],
           publisher: publishers?.firstOrNull,
           openlibraryKey: key?.split('/').last,
+          language: normalizeLanguage(singleLanguage),
           source: 'openlibrary',
         );
       }).toList();

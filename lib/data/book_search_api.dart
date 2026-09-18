@@ -14,6 +14,23 @@ bool isIsbn(String query) {
   return RegExp(r'^(\d{9}[\dX]|\d{13})$').hasMatch(s);
 }
 
+/// Normalise un code/nom de langue (ISO-639-1/2, MARC, libellé FR/EN) vers un
+/// code court minuscule ('fr', 'en', …) pour comparer les éditions entre sources.
+String? normalizeLanguage(String? raw) {
+  if (raw == null) return null;
+  final s = raw.trim().toLowerCase();
+  if (s.isEmpty) return null;
+  const map = {
+    'fre': 'fr', 'fra': 'fr', 'french': 'fr', 'français': 'fr', 'francais': 'fr',
+    'eng': 'en', 'english': 'en', 'anglais': 'en',
+    'spa': 'es', 'espagnol': 'es',
+    'ger': 'de', 'deu': 'de', 'allemand': 'de',
+    'ita': 'it', 'italien': 'it',
+    'jpn': 'ja', 'japonais': 'ja',
+  };
+  return map[s] ?? (s.length == 2 ? s : s);
+}
+
 class ExternalBook {
   final String key;
   final String title;
@@ -33,6 +50,10 @@ class ExternalBook {
   final String? description;
   final String? wikidata;
   final String? inventaireId;
+
+  /// Code langue ISO de l'édition ('fr', 'en', …) quand la source le fournit.
+  /// Sert à privilégier une édition dans la langue de l'application.
+  final String? language;
 
   /// Clé OpenLibrary courte (ex : `OL123W` ou `OL456M`), sans le préfixe.
   final String? openlibraryKey;
@@ -61,6 +82,7 @@ class ExternalBook {
     this.openlibraryKey,
     this.bnfId,
     this.publicDomain = false,
+    this.language,
   }) : sources = sources ?? {source};
 
   /// Premier ISBN-13 disponible (nettoyé), sinon null.
@@ -98,6 +120,7 @@ class ExternalBook {
     String? openlibraryKey,
     String? bnfId,
     bool? publicDomain,
+    String? language,
   }) {
     return ExternalBook(
       key: key ?? this.key,
@@ -116,6 +139,7 @@ class ExternalBook {
       openlibraryKey: openlibraryKey ?? this.openlibraryKey,
       bnfId: bnfId ?? this.bnfId,
       publicDomain: publicDomain ?? this.publicDomain,
+      language: language ?? this.language,
     );
   }
 }

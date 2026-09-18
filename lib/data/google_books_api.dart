@@ -55,6 +55,7 @@ class GoogleBooksApi implements BookSearchApi {
           publisher: volumeInfo['publisher'],
           description: volumeInfo['description'],
           publicDomain: accessInfo?['publicDomain'] == true,
+          language: normalizeLanguage(volumeInfo['language'] as String?),
           source: 'google_books',
         );
       }).toList();

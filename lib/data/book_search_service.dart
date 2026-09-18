@@ -44,8 +44,10 @@ class AggregatedResults {
 /// source : même l'onglet Google Books n'affiche plus la pertinence brute de
 /// l'API (dominée par de vieux ouvrages), mais nos résultats reclassés.
 class BookSearchService {
-  BookSearchService({Map<String, BookSearchApi>? apis})
-      : _apis = apis ??
+  BookSearchService({
+    Map<String, BookSearchApi>? apis,
+    this.targetLanguage = 'fr',
+  }) : _apis = apis ??
             {
               kOpenLibrary: OpenLibraryApi(),
               kBnf: BnfApi(),
@@ -54,6 +56,10 @@ class BookSearchService {
             };
 
   final Map<String, BookSearchApi> _apis;
+
+  /// Langue de l'application : à pertinence comparable, une édition dans cette
+  /// langue est classée devant les autres, pour afficher les titres en français.
+  final String targetLanguage;
 
   static const Duration _timeout = Duration(seconds: 8);
 
@@ -222,6 +228,7 @@ class BookSearchService {
       openlibraryKey: base.openlibraryKey ?? other.openlibraryKey,
       bnfId: base.bnfId ?? other.bnfId,
       publicDomain: base.publicDomain && other.publicDomain,
+      language: base.language ?? other.language,
       sources: {...base.sources, ...other.sources},
     );
   }
@@ -278,6 +285,11 @@ class BookSearchService {
 
     // Léger bonus si plusieurs sources concordent sur ce livre.
     if (b.sources.length > 1) s += 0.05;
+
+    // Privilégie une édition dans la langue de l'application : à pertinence
+    // proche, l'édition française passe devant l'édition d'origine (titre en
+    // français). Trop faible pour promouvoir un livre hors-sujet.
+    if (b.language != null && b.language == targetLanguage) s += 0.2;
 
     return s;
   }
