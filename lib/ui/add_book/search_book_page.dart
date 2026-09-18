@@ -7,6 +7,7 @@ import '../../data/book_companion_mapper.dart';
 import '../../data/book_search_api.dart';
 import '../../data/book_search_service.dart';
 import '../../data/database.dart';
+import '../books/bookshelf_detail_page.dart';
 import 'edit_book_page.dart';
 
 class SearchBookPage extends ConsumerStatefulWidget {
@@ -111,12 +112,25 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
 
   Future<void> _quickAddBook(ExternalBook book) async {
     final database = ref.read(databaseProvider);
-    await database.into(database.books).insert(book.toBooksCompanion());
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('« ${book.title} » ajouté à la liste !')),
-      );
-    }
+    final id =
+        await database.into(database.books).insert(book.toBooksCompanion());
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('« ${book.title} » ajouté à la liste !'),
+        action: SnackBarAction(
+          label: 'Y aller',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BookDetailsPage(bookId: id),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override
