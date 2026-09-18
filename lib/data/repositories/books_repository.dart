@@ -11,6 +11,10 @@ class BooksRepository {
   // Books
   Future<List<Book>> getAllBooks() => _db.getAllBooks();
 
+  /// Flux de toute la bibliothèque (ré-émet à chaque ajout/suppression/édition).
+  /// Sert notamment à repérer les doublons lors de la recherche.
+  Stream<List<Book>> watchAllBooks() => _db.select(_db.books).watch();
+
   Future<Book> getBook(int id) {
     return (_db.select(
       _db.books,
