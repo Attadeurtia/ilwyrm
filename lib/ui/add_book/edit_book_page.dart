@@ -52,8 +52,15 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
       );
       _status = BookShelf.fromId(widget.existingBook!.shelf);
       _localCoverPath = widget.existingBook!.coverPath;
-      _startDate = widget.existingBook!.startDate;
-      _finishDate = widget.existingBook!.finishDate;
+      // Normalise l'affichage pour qu'il soit cohérent avec le statut, même si
+      // les données enregistrées ne l'étaient pas.
+      final dates = datesForShelf(
+        _status,
+        currentStart: widget.existingBook!.startDate,
+        currentFinish: widget.existingBook!.finishDate,
+      );
+      _startDate = dates.start;
+      _finishDate = dates.finish;
     } else {
       _titleController = TextEditingController(
         text: widget.initialBook?.title ?? '',
@@ -96,13 +103,22 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
   }
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
+    // Contraint la plage pour garantir date de fin ≥ date de début.
+    final DateTime firstDate =
+        isStart ? DateTime(2000) : (_startDate ?? DateTime(2000));
+    final DateTime lastDate =
+        isStart ? (_finishDate ?? DateTime(2101)) : DateTime(2101);
+    DateTime initial = isStart
+        ? (_startDate ?? DateTime.now())
+        : (_finishDate ?? _startDate ?? DateTime.now());
+    if (initial.isBefore(firstDate)) initial = firstDate;
+    if (initial.isAfter(lastDate)) initial = lastDate;
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: isStart
-          ? (_startDate ?? DateTime.now())
-          : (_finishDate ?? DateTime.now()),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
+      initialDate: initial,
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
     if (picked != null) {
       setState(() {
@@ -115,10 +131,31 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
     }
   }
 
+  /// Le statut pilote les dates : en changeant de statut, on complète/efface les
+  /// dates selon la règle d'unification (voir datesForShelf).
+  void _onStatusChanged(BookShelf status) {
+    final dates = datesForShelf(
+      status,
+      currentStart: _startDate,
+      currentFinish: _finishDate,
+    );
+    setState(() {
+      _status = status;
+      _startDate = dates.start;
+      _finishDate = dates.finish;
+    });
+  }
+
   Future<void> _saveBook() async {
     if (_formKey.currentState!.validate()) {
       final int? pageCount = int.tryParse(_pageCountController.text);
       final int? year = int.tryParse(_yearController.text);
+      // Applique la règle d'unification statut ↔ dates avant d'enregistrer.
+      final dates = datesForShelf(
+        _status,
+        currentStart: _startDate,
+        currentFinish: _finishDate,
+      );
 
       if (widget.existingBook != null) {
         // Update existing
@@ -138,8 +175,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
                 pageCount: drift.Value(pageCount),
                 shelf: drift.Value(_status.id),
                 shelfName: drift.Value(_status.label),
-                startDate: drift.Value(_startDate),
-                finishDate: drift.Value(_finishDate),
+                startDate: drift.Value(dates.start),
+                finishDate: drift.Value(dates.finish),
                 coverPath: drift.Value(_localCoverPath),
                 coverUrl: widget.initialBook?.coverUrl != null
                     ? drift.Value(widget.initialBook!.coverUrl)
@@ -161,8 +198,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           pageCount: drift.Value(pageCount),
           shelf: drift.Value(_status.id),
           shelfName: drift.Value(_status.label),
-          startDate: drift.Value(_startDate),
-          finishDate: drift.Value(_finishDate),
+          startDate: drift.Value(dates.start),
+          finishDate: drift.Value(dates.finish),
           openlibraryKey: widget.initialBook?.openlibraryKey != null
               ? drift.Value(widget.initialBook!.openlibraryKey)
               : const drift.Value.absent(),
@@ -178,14 +215,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
           isbn10: widget.initialBook?.isbn10 != null
               ? drift.Value(widget.initialBook!.isbn10)
               : const drift.Value.absent(),
-          // We don't store coverId for non-OpenLibrary books easily unless we change schema,
-          // but we can rely on coverUrl if we had a column for it, or just download it.
-          // For now, we'll skip coverId if not from OpenLibrary or if we can't parse it.
-          // The ExternalBook doesn't expose coverId directly as int, it's part of logic.
-          // But we have coverUrl.
-          // The current database schema has coverId (int) and coverPath (String).
-          // If it's a URL, we might need to download it or store the URL if we add a column.
-          // For now, we'll leave coverId absent if not OpenLibrary.
+          // coverId (numérique OpenLibrary) non exposé ici : on s'appuie sur
+          // coverUrl. BookCover sait retomber sur la couverture par ISBN/clé.
           coverId: const drift.Value.absent(),
           coverUrl: widget.initialBook?.coverUrl != null
               ? drift.Value(widget.initialBook!.coverUrl)
@@ -335,15 +366,11 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
                 return DropdownMenuItem(value: shelf, child: Text(shelf.label));
               }).toList(),
               onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _status = value;
-                  });
-                }
+                if (value != null) _onStatusChanged(value);
               },
             ),
-            const SizedBox(height: 16),
-            ListTile(
+            if (_status.usesStartDate) const SizedBox(height: 16),
+            if (_status.usesStartDate) ListTile(
               title: const Text('Date de début'),
               subtitle: Text(
                 _startDate != null
@@ -364,8 +391,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            ListTile(
+            if (_status.usesFinishDate) const SizedBox(height: 16),
+            if (_status.usesFinishDate) ListTile(
               title: const Text('Date de fin'),
               subtitle: Text(
                 _finishDate != null

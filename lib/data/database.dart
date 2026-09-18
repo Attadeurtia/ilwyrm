@@ -16,8 +16,11 @@ part 'database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  /// Constructeur pour les tests : permet d'injecter un exécuteur en mémoire.
+  AppDatabase.forTesting(super.executor);
+
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -29,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _upgrade(Migrator m, int from, int to) async {
     if (from < 2) {
-      // Destructive reset for v1 -> v2
+      // Reset destructif pour v1 -> v2
       for (final table in allTables) {
         await m.deleteTable(table.actualTableName);
       }
@@ -37,39 +40,16 @@ class AppDatabase extends _$AppDatabase {
       return;
     }
 
-    if (from < 4) {
-      await _tryAddColumn(m, books, books.pageCount);
+    // Filet de sécurité idempotent : garantit que TOUTES les colonnes et tables
+    // du schéma actuel existent, quelle que soit la version d'origine. Les
+    // anciennes migrations n'ajoutaient qu'un sous-ensemble des colonnes de
+    // `books` (coverUrl, isbn10/13, inventaireId, wikidata, bnfId, startDate,
+    // finishDate, etc. n'étaient jamais ajoutées → crash « no such column »).
+    for (final column in books.$columns) {
+      await _tryAddColumn(m, books, column);
     }
-
-    if (from < 5) {
-      await _tryAddColumn(m, books, books.coverId);
-    }
-
-    if (from < 6) {
-      await _tryAddColumn(m, books, books.currentPage);
-    }
-
-    if (from < 7) {
-      await _tryAddColumn(m, books, books.isFavorite);
-    }
-
-    if (from < 8) {
-      await _tryAddColumn(m, books, books.coverPath);
-    }
-
-    if (from < 9) {
-      try {
-        await m.createTable(tags);
-        await m.createTable(bookTags);
-      } catch (e) {
-        // Ignore errors
-      }
-    }
-
-    if (from < 11) {
-      await _tryAddColumn(m, books, books.publisher);
-      await _tryAddColumn(m, books, books.publicationYear);
-    }
+    await _tryCreateTable(m, tags);
+    await _tryCreateTable(m, bookTags);
   }
 
   Future<void> _tryAddColumn(
@@ -80,7 +60,15 @@ class AppDatabase extends _$AppDatabase {
     try {
       await m.addColumn(table, column);
     } catch (e) {
-      // Ignore errors for existing columns
+      // Colonne déjà existante (ou non ajoutable) : on ignore.
+    }
+  }
+
+  Future<void> _tryCreateTable(Migrator m, TableInfo table) async {
+    try {
+      await m.createTable(table);
+    } catch (e) {
+      // Table déjà existante : on ignore.
     }
   }
 

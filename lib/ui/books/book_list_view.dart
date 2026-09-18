@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/books_repository.dart';
 import 'bookshelf_detail_page.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'book_cover.dart';
 import '../home/sort_provider.dart';
 import '../../data/enums.dart';
 import '../home/view_provider.dart';
@@ -131,9 +131,7 @@ class BookListView extends ConsumerWidget {
       // If filtering by tag, we first get books by tag, then filter by status/sort in memory
       // (Drift doesn't easily support complex joins + where + sort in a single fluent stream without custom SQL)
       // For simplicity and performance on small datasets, this is fine.
-      bookStream = repository.getBooksByTags(tagIds.toList()).asStream().map((
-        books,
-      ) {
+      bookStream = repository.watchBooksByTags(tagIds.toList()).map((books) {
         var filtered = books.where((b) {
           final statusFilter = b.shelf == dbStatus;
           if (filters.contains('Favoris')) {
@@ -225,23 +223,6 @@ class BookListView extends ConsumerWidget {
                     }
                   }
 
-                  bool hasCover =
-                      book.coverUrl != null ||
-                      book.coverId != null ||
-                      book.openlibraryKey != null;
-                  ImageProvider? coverProvider;
-                  if (book.coverUrl != null) {
-                    coverProvider = CachedNetworkImageProvider(book.coverUrl!);
-                  } else if (book.coverId != null) {
-                    coverProvider = CachedNetworkImageProvider(
-                      'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
-                    );
-                  } else if (book.openlibraryKey != null) {
-                    coverProvider = CachedNetworkImageProvider(
-                      'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
-                    );
-                  }
-
                   return AnimationConfiguration.staggeredList(
                     position: index,
                     duration: const Duration(milliseconds: 375),
@@ -265,77 +246,14 @@ class BookListView extends ConsumerWidget {
                               children: [
                                 Hero(
                                   tag: 'book_cover_${book.id}',
-                                  child: Container(
+                                  child: SizedBox(
                                     width: 50,
                                     height: 75,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      color: hasCover
-                                          ? null
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.tertiaryContainer,
-                                      border: null,
-                                      image: hasCover && coverProvider != null
-                                          ? DecorationImage(
-                                              image: coverProvider,
-                                              fit: BoxFit.cover,
-                                              onError: (e, s) {},
-                                            )
-                                          : null,
+                                    child: BookCover(
+                                      book: book,
+                                      borderRadius: 4,
+                                      compact: true,
                                     ),
-                                    child: !hasCover
-                                        ? Center(
-                                            child: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  book.title,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .labelSmall
-                                                      ?.copyWith(
-                                                        color: Theme.of(context)
-                                                            .colorScheme
-                                                            .onTertiaryContainer,
-                                                        fontSize: 8,
-                                                      ),
-                                                  textAlign: TextAlign.center,
-                                                  maxLines: 3,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                if (book.authorText != null &&
-                                                    book
-                                                        .authorText!
-                                                        .isNotEmpty) ...[
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    book.authorText!,
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .labelSmall
-                                                        ?.copyWith(
-                                                          color:
-                                                              Theme.of(context)
-                                                                  .colorScheme
-                                                                  .onTertiaryContainer
-                                                                  .withValues(
-                                                                    alpha: 0.7,
-                                                                  ),
-                                                          fontSize: 6,
-                                                        ),
-                                                    textAlign: TextAlign.center,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          )
-                                        : null,
                                   ),
                                 ),
                                 if (selectionState.selectedIds.contains(
@@ -430,23 +348,6 @@ class BookListView extends ConsumerWidget {
                     }
                   }
 
-                  bool hasCover =
-                      book.coverUrl != null ||
-                      book.coverId != null ||
-                      book.openlibraryKey != null;
-                  ImageProvider? coverProvider;
-                  if (book.coverUrl != null) {
-                    coverProvider = CachedNetworkImageProvider(book.coverUrl!);
-                  } else if (book.coverId != null) {
-                    coverProvider = CachedNetworkImageProvider(
-                      'https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg',
-                    );
-                  } else if (book.openlibraryKey != null) {
-                    coverProvider = CachedNetworkImageProvider(
-                      'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
-                    );
-                  }
-
                   return AnimationConfiguration.staggeredGrid(
                     position: index,
                     duration: const Duration(milliseconds: 375),
@@ -484,26 +385,11 @@ class BookListView extends ConsumerWidget {
                                       tag: 'book_cover_${book.id}',
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          color: hasCover
-                                              ? null
-                                              : Theme.of(
-                                                  context,
-                                                ).colorScheme.tertiaryContainer,
+                                          borderRadius: BorderRadius.circular(8),
                                           border: borderColor != null
                                               ? Border.all(
                                                   color: borderColor,
                                                   width: 3,
-                                                )
-                                              : null,
-                                          image:
-                                              hasCover && coverProvider != null
-                                              ? DecorationImage(
-                                                  image: coverProvider,
-                                                  fit: BoxFit.cover,
-                                                  onError: (e, s) {},
                                                 )
                                               : null,
                                           boxShadow: [
@@ -517,73 +403,8 @@ class BookListView extends ConsumerWidget {
                                             ),
                                           ],
                                         ),
-                                        child: !hasCover
-                                            ? Center(
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(
-                                                    8.0,
-                                                  ),
-                                                  child: Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      Text(
-                                                        book.title,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .titleSmall
-                                                            ?.copyWith(
-                                                              color: Theme.of(context)
-                                                                  .colorScheme
-                                                                  .onTertiaryContainer,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                            ),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        maxLines: 4,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                      if (book.authorText !=
-                                                              null &&
-                                                          book
-                                                              .authorText!
-                                                              .isNotEmpty) ...[
-                                                        const SizedBox(
-                                                          height: 4,
-                                                        ),
-                                                        Text(
-                                                          book.authorText!,
-                                                          style: Theme.of(context)
-                                                              .textTheme
-                                                              .labelSmall
-                                                              ?.copyWith(
-                                                                color:
-                                                                    Theme.of(
-                                                                          context,
-                                                                        )
-                                                                        .colorScheme
-                                                                        .onTertiaryContainer
-                                                                        .withValues(
-                                                                          alpha:
-                                                                              0.8,
-                                                                        ),
-                                                              ),
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          maxLines: 2,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                      ],
-                                                    ],
-                                                  ),
-                                                ),
-                                              )
-                                            : null,
+                                        clipBehavior: Clip.antiAlias,
+                                        child: BookCover(book: book),
                                       ),
                                     ),
                                     if (selectionState.selectedIds.contains(

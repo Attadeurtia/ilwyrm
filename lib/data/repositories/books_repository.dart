@@ -62,6 +62,13 @@ class BooksRepository {
 
   Future<List<Book>> searchBooks(String query) => _db.searchBooks(query);
 
+  /// Livres du même auteur (recherche sur le champ auteur uniquement).
+  Future<List<Book>> getBooksByAuthor(String author) {
+    return (_db.select(_db.books)
+          ..where((t) => t.authorText.like('%$author%')))
+        .get();
+  }
+
   Future<int> addBook(BooksCompanion book) {
     return _db.into(_db.books).insert(book);
   }
@@ -87,21 +94,61 @@ class BooksRepository {
 
   // Status
   Future<void> updateStatus(int bookId, BookShelf status) async {
+    // Conserve les dates pertinentes déjà saisies, complète/efface le reste
+    // selon la règle d'unification (voir datesForShelf).
+    final book = await getBook(bookId);
+    final dates = datesForShelf(
+      status,
+      currentStart: book.startDate,
+      currentFinish: book.finishDate,
+    );
+
     final companion = BooksCompanion(
       shelf: Value(status.id),
       shelfName: Value(status.label),
       dateModified: Value(DateTime.now()),
-      startDate: status == BookShelf.reading
-          ? Value(DateTime.now())
-          : const Value.absent(),
-      finishDate: status == BookShelf.read
-          ? Value(DateTime.now())
-          : const Value.absent(),
+      startDate: Value(dates.start),
+      finishDate: Value(dates.finish),
     );
 
     await (_db.update(
       _db.books,
     )..where((tbl) => tbl.id.equals(bookId))).write(companion);
+  }
+
+  // Opérations groupées (transaction : atomique + une seule notification de flux)
+  Future<void> updateStatusForBooks(Iterable<int> ids, BookShelf status) {
+    return _db.transaction(() async {
+      for (final id in ids) {
+        await updateStatus(id, status);
+      }
+    });
+  }
+
+  Future<void> deleteBooks(Iterable<int> ids) {
+    return _db.transaction(() async {
+      for (final id in ids) {
+        await deleteBook(id);
+      }
+    });
+  }
+
+  Future<void> setFavoriteForBooks(Iterable<int> ids, bool isFavorite) {
+    return _db.transaction(() async {
+      for (final id in ids) {
+        await toggleFavorite(id, isFavorite);
+      }
+    });
+  }
+
+  Future<void> addTagsToBooks(Iterable<int> bookIds, Iterable<int> tagIds) {
+    return _db.transaction(() async {
+      for (final bookId in bookIds) {
+        for (final tagId in tagIds) {
+          await addTagToBook(bookId, tagId);
+        }
+      }
+    });
   }
 
   // Tags
@@ -111,20 +158,31 @@ class BooksRepository {
 
   Future<List<Book>> getBooksByTags(List<int> tagIds) async {
     if (tagIds.isEmpty) return [];
+    return _booksByTagsSelectable(tagIds).get();
+  }
 
-    // Custom SQL for AND logic (Intersection) to ensure HAVING support
+  /// Version réactive : ré-émet quand les livres ou les associations de tags
+  /// changent (indispensable pour que la liste filtrée par tag se rafraîchisse
+  /// après un ajout/suppression/changement de statut).
+  Stream<List<Book>> watchBooksByTags(List<int> tagIds) {
+    if (tagIds.isEmpty) return Stream.value(const []);
+    return _booksByTagsSelectable(tagIds).watch();
+  }
+
+  Selectable<Book> _booksByTagsSelectable(List<int> tagIds) {
+    // SQL custom pour la logique ET (intersection) via HAVING.
     final placeholders = tagIds.map((_) => '?').join(',');
     final sql =
         '''
-      SELECT books.* 
-      FROM books 
-      JOIN book_tags ON books.id = book_tags.book_id 
-      WHERE book_tags.tag_id IN ($placeholders) 
-      GROUP BY books.id 
+      SELECT books.*
+      FROM books
+      JOIN book_tags ON books.id = book_tags.book_id
+      WHERE book_tags.tag_id IN ($placeholders)
+      GROUP BY books.id
       HAVING COUNT(DISTINCT book_tags.tag_id) = ?
     ''';
 
-    final rows = await _db
+    return _db
         .customSelect(
           sql,
           variables: [
@@ -133,9 +191,7 @@ class BooksRepository {
           ],
           readsFrom: {_db.books, _db.bookTags},
         )
-        .get();
-
-    return rows.map((row) => _db.books.map(row.data)).toList();
+        .map((row) => _db.books.map(row.data));
   }
 
   Future<void> addTagToBook(int bookId, int tagId) =>

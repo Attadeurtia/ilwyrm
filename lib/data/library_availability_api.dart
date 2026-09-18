@@ -27,7 +27,8 @@ class LibraryAvailabilityApi {
     );
 
     try {
-      final response = await http.get(uri);
+      final response =
+          await http.get(uri).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);

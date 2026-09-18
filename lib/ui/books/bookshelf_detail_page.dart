@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../data/database.dart';
 import '../../data/repositories/books_repository.dart';
 import '../add_book/edit_book_page.dart';
 import '../add_book/search_book_page.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'book_cover.dart';
 import '../../data/settings_repository.dart';
 import 'manage_tags_dialog.dart';
 import '../home/availability_provider.dart';
@@ -75,12 +76,35 @@ class BookDetailsPage extends ConsumerWidget {
                       ),
                     ),
                     onTap: () {
-                      Future.delayed(const Duration(seconds: 0), () {
-                        if (context.mounted) {
-                          repository.deleteBook(book.id);
-                          Navigator.of(
-                            context,
-                          ).pop(); // Pop the detail page after deleting
+                      Future.delayed(Duration.zero, () async {
+                        if (!context.mounted) return;
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Supprimer le livre ?'),
+                            content: Text(
+                              'Voulez-vous vraiment supprimer « ${book.title} » ?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Annuler'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: Text(
+                                  'Supprimer',
+                                  style: TextStyle(
+                                    color: Theme.of(ctx).colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true && context.mounted) {
+                          await repository.deleteBook(book.id);
+                          if (context.mounted) Navigator.of(context).pop();
                         }
                       });
                     },
@@ -106,26 +130,6 @@ class BookDetailsPage extends ConsumerWidget {
                         height: 210,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          image:
-                              (book.coverId != null ||
-                                  book.openlibraryKey != null ||
-                                  book.coverUrl != null)
-                              ? DecorationImage(
-                                  image: book.coverUrl != null
-                                      ? CachedNetworkImageProvider(
-                                          book.coverUrl!,
-                                        )
-                                      : book.coverId != null
-                                      ? CachedNetworkImageProvider(
-                                          'https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg',
-                                        )
-                                      : CachedNetworkImageProvider(
-                                          'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-L.jpg',
-                                        ),
-                                  fit: BoxFit.cover,
-                                  onError: (e, s) {},
-                                )
-                              : null,
                           boxShadow: [
                             BoxShadow(
                               color: Theme.of(
@@ -136,22 +140,8 @@ class BookDetailsPage extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        child:
-                            book.coverId == null &&
-                                book.openlibraryKey == null &&
-                                book.coverUrl == null
-                            ? Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.primaryContainer,
-                                ),
-                                child: const Center(
-                                  child: Icon(Icons.book, size: 40),
-                                ),
-                              )
-                            : null,
+                        clipBehavior: Clip.antiAlias,
+                        child: BookCover(book: book, borderRadius: 16),
                       ),
                     ),
                     const SizedBox(width: 24),
@@ -216,10 +206,9 @@ class BookDetailsPage extends ConsumerWidget {
                           // ISBN
                           InkWell(
                             onTap: () {
-                              if (book.isbn13 != null) {
-                                Clipboard.setData(
-                                  ClipboardData(text: book.isbn13!),
-                                );
+                              final isbn = book.isbn13 ?? book.isbn10;
+                              if (isbn != null) {
+                                Clipboard.setData(ClipboardData(text: isbn));
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
@@ -249,7 +238,7 @@ class BookDetailsPage extends ConsumerWidget {
                                       ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(book.isbn13 ?? 'Inconnu'),
+                                Text(book.isbn13 ?? book.isbn10 ?? 'Inconnu'),
                               ],
                             ),
                           ),
@@ -349,8 +338,7 @@ class BookDetailsPage extends ConsumerWidget {
   }
 
   String _formatDate(DateTime date) {
-    // Simple formatter, ideally use intl package
-    return '${date.day}/${date.month}/${date.year}';
+    return DateFormat.yMMMd('fr_FR').format(date);
   }
 }
 
@@ -367,37 +355,22 @@ class _AuthorBooksList extends ConsumerWidget {
     final repository = ref.watch(booksRepositoryProvider);
 
     return FutureBuilder<List<Book>>(
-      // TODO: Add getBooksByAuthor to repository if needed, or use search
-      future: repository.searchBooks(author!),
+      future: repository.getBooksByAuthor(author!),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        final books =
+            (snapshot.data ?? []).where((b) => b.id != currentBookId).toList();
+        if (books.isEmpty) {
           return const Text('Aucun autre livre trouvé.');
         }
 
         return Column(
-          children: snapshot.data!
+          children: books
               .map(
                 (book) => ListTile(
-                  leading: Container(
+                  leading: SizedBox(
                     width: 50,
                     height: 75,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      image: DecorationImage(
-                        image: book.coverId != null
-                            ? CachedNetworkImageProvider(
-                                'https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg',
-                              )
-                            : book.openlibraryKey != null
-                            ? CachedNetworkImageProvider(
-                                'https://covers.openlibrary.org/b/olid/${book.openlibraryKey!.split('/').last}-M.jpg',
-                              )
-                            : const AssetImage('assets/placeholder_book.png')
-                                  as ImageProvider,
-                        fit: BoxFit.cover,
-                        onError: (e, s) {},
-                      ),
-                    ),
+                    child: BookCover(book: book, compact: true),
                   ),
                   title: Text(book.title),
                   subtitle: Text(book.authorText ?? ''),
@@ -604,8 +577,8 @@ class _LibraryAvailabilityWidgetState
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsRepositoryProvider);
-    if (!settings.isLibraryAvailabilityEnabled) {
+    final settings = ref.watch(settingsProvider);
+    if (!settings.libraryAvailabilityEnabled) {
       return const SizedBox.shrink();
     }
 
@@ -691,7 +664,7 @@ class _LibraryAvailabilityWidgetState
                 ),
               const SizedBox(height: 4),
               Text(
-                'Dernière vérification : ${DateTime.fromMillisecondsSinceEpoch(response.lastCheck).toString()}',
+                'Dernière vérification : ${DateFormat.yMMMd('fr_FR').add_Hm().format(DateTime.fromMillisecondsSinceEpoch(response.lastCheck))}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -743,7 +716,7 @@ class _BookMetadataTable extends StatelessWidget {
                   child: Text(
                     entry.key,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

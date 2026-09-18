@@ -151,15 +151,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                 Consumer(
                   builder: (context, ref, child) {
                     final selectedTagIds = ref.watch(selectedTagProvider);
-                    final settingsRepo = ref.watch(settingsRepositoryProvider);
                     final isExperimental =
-                        settingsRepo.isLibraryAvailabilityEnabled;
+                        ref.watch(settingsProvider).libraryAvailabilityEnabled;
 
-                    // Only allow checking availability if exactly one tag is selected for now,
-                    // or implement for multiple. Let's start with single or disable.
-                    // Actually, plan said check `isNotEmpty`.
-                    // But `getBooksByTag` (singular) was used. We have `getBooksByTags` now.
-                    // Let's support multiple.
+                    // Vérification de disponibilité proposée quand au moins un
+                    // tag est sélectionné (fonctionnalité expérimentale).
                     if (isExperimental && selectedTagIds.isNotEmpty) {
                       return IconButton(
                         icon: const Icon(Icons.travel_explore),
@@ -380,10 +376,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (result != null) {
       final repository = ref.read(booksRepositoryProvider);
       final status = BookShelf.fromId(result);
-
-      for (final id in selectedIds) {
-        await repository.updateStatus(id, status);
-      }
+      await repository.updateStatusForBooks(selectedIds, status);
 
       ref.read(selectionProvider.notifier).clear();
 
@@ -400,9 +393,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     Set<int> selectedIds,
   ) async {
     final repository = ref.read(booksRepositoryProvider);
-    for (final id in selectedIds) {
-      await repository.toggleFavorite(id, true);
-    }
+    await repository.setFavoriteForBooks(selectedIds, true);
 
     ref.read(selectionProvider.notifier).clear();
 
@@ -462,9 +453,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     if (confirmed == true) {
       final repository = ref.read(booksRepositoryProvider);
-      for (final id in selectedIds) {
-        await repository.deleteBook(id);
-      }
+      await repository.deleteBooks(selectedIds);
 
       ref.read(selectionProvider.notifier).clear();
 
@@ -626,11 +615,7 @@ class _ManageMultipleTagsDialogState
         TextButton(
           onPressed: () async {
             final repository = ref.read(booksRepositoryProvider);
-            for (final bookId in widget.selectedIds) {
-              for (final tagId in _selectedTagIds) {
-                await repository.addTagToBook(bookId, tagId);
-              }
-            }
+            await repository.addTagsToBooks(widget.selectedIds, _selectedTagIds);
             if (context.mounted) Navigator.pop(context, true);
           },
           child: const Text('Ajouter'),

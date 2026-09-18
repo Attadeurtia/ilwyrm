@@ -31,3 +31,47 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return SettingsRepository(prefs);
 });
+
+/// État immuable des paramètres, exposé de façon réactive pour que l'UI se mette
+/// à jour instantanément partout quand un réglage change.
+class AppSettings {
+  final bool libraryAvailabilityEnabled;
+  final String? libraryApiUrl;
+
+  const AppSettings({
+    required this.libraryAvailabilityEnabled,
+    this.libraryApiUrl,
+  });
+
+  AppSettings copyWith({bool? libraryAvailabilityEnabled, String? libraryApiUrl}) {
+    return AppSettings(
+      libraryAvailabilityEnabled:
+          libraryAvailabilityEnabled ?? this.libraryAvailabilityEnabled,
+      libraryApiUrl: libraryApiUrl ?? this.libraryApiUrl,
+    );
+  }
+}
+
+class SettingsNotifier extends Notifier<AppSettings> {
+  @override
+  AppSettings build() {
+    final repo = ref.read(settingsRepositoryProvider);
+    return AppSettings(
+      libraryAvailabilityEnabled: repo.isLibraryAvailabilityEnabled,
+      libraryApiUrl: repo.libraryApiUrl,
+    );
+  }
+
+  Future<void> setLibraryAvailabilityEnabled(bool enabled) async {
+    await ref.read(settingsRepositoryProvider).setLibraryAvailabilityEnabled(enabled);
+    state = state.copyWith(libraryAvailabilityEnabled: enabled);
+  }
+
+  Future<void> setLibraryApiUrl(String url) async {
+    await ref.read(settingsRepositoryProvider).setLibraryApiUrl(url);
+    state = state.copyWith(libraryApiUrl: url);
+  }
+}
+
+final settingsProvider =
+    NotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
