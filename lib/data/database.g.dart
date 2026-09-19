@@ -237,6 +237,17 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _startDateMeta = const VerificationMeta(
     'startDate',
   );
@@ -452,6 +463,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     currentPage,
     publisher,
     publicationYear,
+    description,
     startDate,
     finishDate,
     stoppedDate,
@@ -628,6 +640,15 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         publicationYear.isAcceptableOrUnknown(
           data['publication_year']!,
           _publicationYearMeta,
+        ),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
         ),
       );
     }
@@ -842,6 +863,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.int,
         data['${effectivePrefix}publication_year'],
       ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
       startDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}start_date'],
@@ -942,6 +967,9 @@ class Book extends DataClass implements Insertable<Book> {
   final int? currentPage;
   final String? publisher;
   final int? publicationYear;
+
+  /// Résumé/quatrième de couverture du livre (récupéré via les APIs).
+  final String? description;
   final DateTime? startDate;
   final DateTime? finishDate;
   final DateTime? stoppedDate;
@@ -982,6 +1010,7 @@ class Book extends DataClass implements Insertable<Book> {
     this.currentPage,
     this.publisher,
     this.publicationYear,
+    this.description,
     this.startDate,
     this.finishDate,
     this.stoppedDate,
@@ -1064,6 +1093,9 @@ class Book extends DataClass implements Insertable<Book> {
     }
     if (!nullToAbsent || publicationYear != null) {
       map['publication_year'] = Variable<int>(publicationYear);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
     }
     if (!nullToAbsent || startDate != null) {
       map['start_date'] = Variable<DateTime>(startDate);
@@ -1171,6 +1203,9 @@ class Book extends DataClass implements Insertable<Book> {
       publicationYear: publicationYear == null && nullToAbsent
           ? const Value.absent()
           : Value(publicationYear),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
       startDate: startDate == null && nullToAbsent
           ? const Value.absent()
           : Value(startDate),
@@ -1245,6 +1280,7 @@ class Book extends DataClass implements Insertable<Book> {
       currentPage: serializer.fromJson<int?>(json['currentPage']),
       publisher: serializer.fromJson<String?>(json['publisher']),
       publicationYear: serializer.fromJson<int?>(json['publicationYear']),
+      description: serializer.fromJson<String?>(json['description']),
       startDate: serializer.fromJson<DateTime?>(json['startDate']),
       finishDate: serializer.fromJson<DateTime?>(json['finishDate']),
       stoppedDate: serializer.fromJson<DateTime?>(json['stoppedDate']),
@@ -1290,6 +1326,7 @@ class Book extends DataClass implements Insertable<Book> {
       'currentPage': serializer.toJson<int?>(currentPage),
       'publisher': serializer.toJson<String?>(publisher),
       'publicationYear': serializer.toJson<int?>(publicationYear),
+      'description': serializer.toJson<String?>(description),
       'startDate': serializer.toJson<DateTime?>(startDate),
       'finishDate': serializer.toJson<DateTime?>(finishDate),
       'stoppedDate': serializer.toJson<DateTime?>(stoppedDate),
@@ -1333,6 +1370,7 @@ class Book extends DataClass implements Insertable<Book> {
     Value<int?> currentPage = const Value.absent(),
     Value<String?> publisher = const Value.absent(),
     Value<int?> publicationYear = const Value.absent(),
+    Value<String?> description = const Value.absent(),
     Value<DateTime?> startDate = const Value.absent(),
     Value<DateTime?> finishDate = const Value.absent(),
     Value<DateTime?> stoppedDate = const Value.absent(),
@@ -1379,6 +1417,7 @@ class Book extends DataClass implements Insertable<Book> {
     publicationYear: publicationYear.present
         ? publicationYear.value
         : this.publicationYear,
+    description: description.present ? description.value : this.description,
     startDate: startDate.present ? startDate.value : this.startDate,
     finishDate: finishDate.present ? finishDate.value : this.finishDate,
     stoppedDate: stoppedDate.present ? stoppedDate.value : this.stoppedDate,
@@ -1441,6 +1480,9 @@ class Book extends DataClass implements Insertable<Book> {
       publicationYear: data.publicationYear.present
           ? data.publicationYear.value
           : this.publicationYear,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       finishDate: data.finishDate.present
           ? data.finishDate.value
@@ -1500,6 +1542,7 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('currentPage: $currentPage, ')
           ..write('publisher: $publisher, ')
           ..write('publicationYear: $publicationYear, ')
+          ..write('description: $description, ')
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
@@ -1545,6 +1588,7 @@ class Book extends DataClass implements Insertable<Book> {
     currentPage,
     publisher,
     publicationYear,
+    description,
     startDate,
     finishDate,
     stoppedDate,
@@ -1589,6 +1633,7 @@ class Book extends DataClass implements Insertable<Book> {
           other.currentPage == this.currentPage &&
           other.publisher == this.publisher &&
           other.publicationYear == this.publicationYear &&
+          other.description == this.description &&
           other.startDate == this.startDate &&
           other.finishDate == this.finishDate &&
           other.stoppedDate == this.stoppedDate &&
@@ -1631,6 +1676,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<int?> currentPage;
   final Value<String?> publisher;
   final Value<int?> publicationYear;
+  final Value<String?> description;
   final Value<DateTime?> startDate;
   final Value<DateTime?> finishDate;
   final Value<DateTime?> stoppedDate;
@@ -1671,6 +1717,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.currentPage = const Value.absent(),
     this.publisher = const Value.absent(),
     this.publicationYear = const Value.absent(),
+    this.description = const Value.absent(),
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
@@ -1712,6 +1759,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.currentPage = const Value.absent(),
     this.publisher = const Value.absent(),
     this.publicationYear = const Value.absent(),
+    this.description = const Value.absent(),
     this.startDate = const Value.absent(),
     this.finishDate = const Value.absent(),
     this.stoppedDate = const Value.absent(),
@@ -1753,6 +1801,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<int>? currentPage,
     Expression<String>? publisher,
     Expression<int>? publicationYear,
+    Expression<String>? description,
     Expression<DateTime>? startDate,
     Expression<DateTime>? finishDate,
     Expression<DateTime>? stoppedDate,
@@ -1794,6 +1843,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (currentPage != null) 'current_page': currentPage,
       if (publisher != null) 'publisher': publisher,
       if (publicationYear != null) 'publication_year': publicationYear,
+      if (description != null) 'description': description,
       if (startDate != null) 'start_date': startDate,
       if (finishDate != null) 'finish_date': finishDate,
       if (stoppedDate != null) 'stopped_date': stoppedDate,
@@ -1837,6 +1887,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<int?>? currentPage,
     Value<String?>? publisher,
     Value<int?>? publicationYear,
+    Value<String?>? description,
     Value<DateTime?>? startDate,
     Value<DateTime?>? finishDate,
     Value<DateTime?>? stoppedDate,
@@ -1878,6 +1929,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       currentPage: currentPage ?? this.currentPage,
       publisher: publisher ?? this.publisher,
       publicationYear: publicationYear ?? this.publicationYear,
+      description: description ?? this.description,
       startDate: startDate ?? this.startDate,
       finishDate: finishDate ?? this.finishDate,
       stoppedDate: stoppedDate ?? this.stoppedDate,
@@ -1967,6 +2019,9 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (publicationYear.present) {
       map['publication_year'] = Variable<int>(publicationYear.value);
     }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
     if (startDate.present) {
       map['start_date'] = Variable<DateTime>(startDate.value);
     }
@@ -2046,6 +2101,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('currentPage: $currentPage, ')
           ..write('publisher: $publisher, ')
           ..write('publicationYear: $publicationYear, ')
+          ..write('description: $description, ')
           ..write('startDate: $startDate, ')
           ..write('finishDate: $finishDate, ')
           ..write('stoppedDate: $stoppedDate, ')
@@ -2582,6 +2638,7 @@ typedef $$BooksTableCreateCompanionBuilder =
       Value<int?> currentPage,
       Value<String?> publisher,
       Value<int?> publicationYear,
+      Value<String?> description,
       Value<DateTime?> startDate,
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
@@ -2624,6 +2681,7 @@ typedef $$BooksTableUpdateCompanionBuilder =
       Value<int?> currentPage,
       Value<String?> publisher,
       Value<int?> publicationYear,
+      Value<String?> description,
       Value<DateTime?> startDate,
       Value<DateTime?> finishDate,
       Value<DateTime?> stoppedDate,
@@ -2782,6 +2840,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<int> get publicationYear => $composableBuilder(
     column: $table.publicationYear,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3015,6 +3078,11 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get startDate => $composableBuilder(
     column: $table.startDate,
     builder: (column) => ColumnOrderings(column),
@@ -3192,6 +3260,11 @@ class $$BooksTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get startDate =>
       $composableBuilder(column: $table.startDate, builder: (column) => column);
 
@@ -3333,6 +3406,7 @@ class $$BooksTableTableManager
                 Value<int?> currentPage = const Value.absent(),
                 Value<String?> publisher = const Value.absent(),
                 Value<int?> publicationYear = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
@@ -3373,6 +3447,7 @@ class $$BooksTableTableManager
                 currentPage: currentPage,
                 publisher: publisher,
                 publicationYear: publicationYear,
+                description: description,
                 startDate: startDate,
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,
@@ -3415,6 +3490,7 @@ class $$BooksTableTableManager
                 Value<int?> currentPage = const Value.absent(),
                 Value<String?> publisher = const Value.absent(),
                 Value<int?> publicationYear = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> finishDate = const Value.absent(),
                 Value<DateTime?> stoppedDate = const Value.absent(),
@@ -3455,6 +3531,7 @@ class $$BooksTableTableManager
                 currentPage: currentPage,
                 publisher: publisher,
                 publicationYear: publicationYear,
+                description: description,
                 startDate: startDate,
                 finishDate: finishDate,
                 stoppedDate: stoppedDate,

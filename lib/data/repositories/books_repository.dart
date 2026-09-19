@@ -87,6 +87,13 @@ class BooksRepository {
     )..where((tbl) => tbl.id.equals(id))).write(book);
   }
 
+  /// Enregistre le résumé récupéré (mise en cache pour l'affichage hors-ligne).
+  Future<int> updateDescription(int bookId, String description) {
+    return (_db.update(_db.books)..where((tbl) => tbl.id.equals(bookId))).write(
+      BooksCompanion(description: Value(description)),
+    );
+  }
+
   /// Remplace la couverture par une URL (et efface une éventuelle couverture
   /// locale, pour que la nouvelle s'affiche partout).
   Future<int> updateCover(int bookId, String coverUrl) {

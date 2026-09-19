@@ -30,6 +30,9 @@ class Books extends Table {
   IntColumn get publicationYear =>
       integer().named('publication_year').nullable()();
 
+  /// Résumé/quatrième de couverture du livre (récupéré via les APIs).
+  TextColumn get description => text().nullable()();
+
   // Reading Status & Dates
   DateTimeColumn get startDate => dateTime().named('start_date').nullable()();
   DateTimeColumn get finishDate => dateTime().named('finish_date').nullable()();
