@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'batch_add_page.dart';
+import 'scan_cover_page.dart';
 
 class ScannerPage extends StatefulWidget {
   const ScannerPage({super.key});
@@ -64,6 +65,14 @@ class _ScannerPageState extends State<ScannerPage> {
         title: const Text('Scanner des livres'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.document_scanner),
+            tooltip: 'Sans code-barres ? Scanner la couverture',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ScanCoverPage()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.flash_on),
             onPressed: () => _controller.toggleTorch(),
           ),
@@ -90,7 +99,9 @@ class _ScannerPageState extends State<ScannerPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Scanner le code-barres d\'un livre',
+                  'Scanne le code-barres d\'un livre.\n'
+                  'Pas de code-barres ? Utilise l\'icône couverture en haut.',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onPrimary,
                     fontSize: 16,

@@ -5,6 +5,7 @@ import '../../data/book_companion_mapper.dart';
 import '../../data/book_search_api.dart';
 import '../../data/book_search_service.dart';
 import '../theme_extensions.dart';
+import 'scan_cover_page.dart';
 
 class BatchAddPage extends ConsumerStatefulWidget {
   final List<String> isbns;
@@ -168,6 +169,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
               children: [
                 if (_failedIsbns.isNotEmpty)
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(8.0),
                     decoration: BoxDecoration(
                       color: context.semanticColors.warning.withValues(
@@ -175,17 +177,36 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                       ),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.warning,
-                          color: context.semanticColors.warning,
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.warning,
+                              color: context.semanticColors.warning,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Impossible de trouver ${_failedIsbns.length} livre(s) '
+                                'par code-barres.',
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Impossible de trouver ${_failedIsbns.length} livre(s).',
+                        const SizedBox(height: 8),
+                        // Repli : quand le code-barres ne donne rien, on propose
+                        // de photographier la couverture (OCR).
+                        FilledButton.tonalIcon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ScanCoverPage(),
+                            ),
                           ),
+                          icon: const Icon(Icons.document_scanner),
+                          label: const Text('Scanner la couverture'),
                         ),
                       ],
                     ),

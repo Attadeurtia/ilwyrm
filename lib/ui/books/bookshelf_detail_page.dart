@@ -790,13 +790,16 @@ class _FullscreenCoverPage extends StatelessWidget {
                 minScale: 1,
                 maxScale: 5,
                 child: Center(
-                  // Pas de Hero ici : le plein écran est une action propre à la
-                  // page détaillée, indépendante de la transition depuis la
-                  // grille (« le menu »).
-                  child: BookCover(
-                    book: book,
-                    fit: BoxFit.contain,
-                    borderRadius: 0,
+                  // Zoom depuis la couverture tapée sur la fiche (Hero) : la
+                  // couverture s'agrandit depuis sa position jusqu'au plein
+                  // écran, et inversement au retour.
+                  child: Hero(
+                    tag: 'book_cover_${book.id}',
+                    child: BookCover(
+                      book: book,
+                      fit: BoxFit.contain,
+                      borderRadius: 0,
+                    ),
                   ),
                 ),
               ),

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -64,9 +66,26 @@ class BookCover extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: SizedBox.expand(
-        child: _chain(context, _candidateUrls(), 0),
+        child: _buildImage(context),
       ),
     );
+  }
+
+  Widget _buildImage(BuildContext context) {
+    // Couverture locale (photo prise via le scan OCR ou choisie) en priorité ;
+    // en cas d'échec, on retombe sur la cascade réseau puis le placeholder.
+    final path = book.coverPath;
+    if (path != null && path.trim().isNotEmpty) {
+      return Image.file(
+        File(path),
+        fit: fit,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, _, _) =>
+            _chain(context, _candidateUrls(), 0),
+      );
+    }
+    return _chain(context, _candidateUrls(), 0);
   }
 
   Widget _chain(BuildContext context, List<String> urls, int index) {
