@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../data/library_index.dart';
 import 'batch_add_page.dart';
 import 'scan_cover_page.dart';
 
-class ScannerPage extends StatefulWidget {
+class ScannerPage extends ConsumerStatefulWidget {
   const ScannerPage({super.key});
 
   @override
-  State<ScannerPage> createState() => _ScannerPageState();
+  ConsumerState<ScannerPage> createState() => _ScannerPageState();
 }
 
-class _ScannerPageState extends State<ScannerPage> {
+class _ScannerPageState extends ConsumerState<ScannerPage> {
   final MobileScannerController _controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
     facing: CameraFacing.back,
     torchEnabled: false,
   );
   final Set<String> _scannedIsbns = {};
+  final Set<String> _duplicateIsbns = {};
 
   @override
   void dispose() {
@@ -25,22 +28,29 @@ class _ScannerPageState extends State<ScannerPage> {
   }
 
   void _onDetect(BarcodeCapture capture) {
-    final List<Barcode> barcodes = capture.barcodes;
-    for (final barcode in barcodes) {
-      if (barcode.rawValue != null) {
-        final isbn = barcode.rawValue!;
-        if (!_scannedIsbns.contains(isbn)) {
-          setState(() {
-            _scannedIsbns.add(isbn);
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Livre scanné: $isbn'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-        }
-      }
+    for (final barcode in capture.barcodes) {
+      final isbn = barcode.rawValue;
+      if (isbn == null || _scannedIsbns.contains(isbn)) continue;
+
+      // Signale immédiatement si un livre avec cet ISBN est déjà en bibliothèque.
+      final inLibrary =
+          ref.read(libraryIndexProvider).value?.containsIsbn(isbn) ?? false;
+      setState(() {
+        _scannedIsbns.add(isbn);
+        if (inLibrary) _duplicateIsbns.add(isbn);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            inLibrary
+                ? '« $isbn » est déjà dans ta bibliothèque'
+                : 'Livre scanné : $isbn',
+          ),
+          backgroundColor:
+              inLibrary ? Theme.of(context).colorScheme.tertiary : null,
+          duration: const Duration(seconds: 1),
+        ),
+      );
     }
   }
 
@@ -60,6 +70,9 @@ class _ScannerPageState extends State<ScannerPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Garde l'index de la bibliothèque abonné (donc à jour) pour le contrôle
+    // d'ISBN déjà présent au moment du scan.
+    ref.watch(libraryIndexProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scanner des livres'),
@@ -98,14 +111,31 @@ class _ScannerPageState extends State<ScannerPage> {
                   ).colorScheme.scrim.withValues(alpha: 0.54),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  'Scanne le code-barres d\'un livre.\n'
-                  'Pas de code-barres ? Utilise l\'icône couverture en haut.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontSize: 16,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Scanne le code-barres d\'un livre.\n'
+                      'Pas de code-barres ? Utilise l\'icône couverture en haut.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        fontSize: 16,
+                      ),
+                    ),
+                    if (_duplicateIsbns.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_duplicateIsbns.length} déjà dans ta bibliothèque',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),

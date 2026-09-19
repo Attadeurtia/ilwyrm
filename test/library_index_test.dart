@@ -127,6 +127,16 @@ void main() {
       expect(index.findId(ext), 12);
     });
 
+    test('containsIsbn repère un ISBN déjà présent (nettoyé)', () {
+      final index = buildLibraryIndex([
+        _book(id: 1, title: 'Dune', author: 'Frank Herbert', isbn13: '9780441172719'),
+      ]);
+      expect(index.containsIsbn('978-0-441-17271-9'), isTrue); // même ISBN, tirets
+      expect(index.containsIsbn('0441172719'), isFalse); // ISBN-10 absent
+      expect(index.containsIsbn('9782221252055'), isFalse); // autre édition
+      expect(index.containsIsbn('pas-un-isbn'), isFalse);
+    });
+
     test('index vide → aucun doublon', () {
       expect(LibraryIndex.empty.contains(_external(title: 'Dune', author: 'Frank Herbert')),
           isFalse);

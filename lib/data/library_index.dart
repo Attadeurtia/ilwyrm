@@ -30,6 +30,14 @@ class LibraryIndex {
 
   /// Vrai si [book] est déjà dans la bibliothèque.
   bool contains(ExternalBook book) => findId(book) != null;
+
+  /// Vrai si un livre de la bibliothèque possède cet ISBN (10 ou 13), nettoyé.
+  /// Utile pour signaler un doublon dès le scan du code-barres.
+  bool containsIsbn(String rawIsbn) {
+    final c = cleanIsbn(rawIsbn);
+    if (c.length != 10 && c.length != 13) return false;
+    return _keyToId.containsKey('isbn:${c.toLowerCase()}');
+  }
 }
 
 /// Construit l'index à partir de la liste complète des livres.
