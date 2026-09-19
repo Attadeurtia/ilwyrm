@@ -1,9 +1,12 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../data/book_search_service.dart';
 import '../../data/database.dart';
+import '../../data/open_library_api.dart';
 import '../../data/repositories/books_repository.dart';
 import '../add_book/edit_book_page.dart';
 import '../add_book/search_book_page.dart';
@@ -770,53 +773,279 @@ class _BookMetadataTable extends StatelessWidget {
 }
 
 /// Aperçu plein écran de la couverture, avec zoom/déplacement (InteractiveViewer)
-/// et transition Hero partagée avec la fiche. On ferme par tap, bouton ✕ ou
-/// retour système.
-class _FullscreenCoverPage extends StatelessWidget {
+/// et transition Hero depuis la fiche. Propose sous la couverture une liste de
+/// couvertures alternatives (par source) ; en toucher une remplace la couverture
+/// du livre. On ferme par tap sur l'image, bouton ✕ ou retour système.
+class _FullscreenCoverPage extends ConsumerStatefulWidget {
   final Book book;
 
   const _FullscreenCoverPage({required this.book});
 
   @override
+  ConsumerState<_FullscreenCoverPage> createState() =>
+      _FullscreenCoverPageState();
+}
+
+class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
+  final BookSearchService _service = BookSearchService();
+  List<_CoverOption> _alternatives = const [];
+  bool _loading = true;
+  String? _selectedUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAlternatives();
+  }
+
+  Future<void> _fetchAlternatives() async {
+    final book = widget.book;
+    final isbn13 = book.isbn13;
+    final isbn10 = book.isbn10;
+    final isbn = (isbn13 != null && isbn13.isNotEmpty)
+        ? isbn13
+        : (isbn10 != null && isbn10.isNotEmpty)
+            ? isbn10
+            : null;
+    // Recherche par titre + auteur pour ramener PLUSIEURS éditions par source.
+    final query = [book.title, book.authorText ?? '']
+        .where((s) => s.trim().isNotEmpty)
+        .join(' ');
+    if (query.trim().isEmpty && isbn == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    try {
+      // En parallèle : les couvertures des ÉDITIONS de l'œuvre OpenLibrary
+      // (modèle Work → Editions) + une recherche multi-sources dont on garde
+      // plusieurs couvertures par source (BnF, Inventaire, Google Books).
+      final olFuture = OpenLibraryApi()
+          .fetchEditionCovers(openlibraryKey: book.openlibraryKey, isbn: isbn);
+      final aggFuture = query.trim().isEmpty
+          ? Future.value(AggregatedResults.empty())
+          : _service.search(query);
+      final olCovers = await olFuture;
+      final agg = await aggFuture;
+
+      final options = <_CoverOption>[];
+      final seen = <String>{};
+      // Éditions OpenLibrary (couvertures multiples, déjà propres à l'œuvre).
+      for (final url in olCovers) {
+        if (seen.add(url)) {
+          options.add(_CoverOption(url: url, source: kOpenLibrary));
+        }
+      }
+      // Autres sources : plusieurs couvertures chacune, en ne gardant que les
+      // résultats dont le titre correspond (évite les couvertures d'un autre
+      // livre du même auteur).
+      const perSourceCap = 6;
+      for (final entry in agg.bySource.entries) {
+        if (entry.key == kOpenLibrary) continue;
+        var count = 0;
+        for (final b in entry.value) {
+          if (count >= perSourceCap) break;
+          final url = b.coverUrl;
+          if (url != null &&
+              url.isNotEmpty &&
+              _titleMatches(book.title, b.title) &&
+              seen.add(url)) {
+            options.add(_CoverOption(url: url, source: entry.key));
+            count++;
+          }
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _alternatives = options.take(30).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Normalise un titre pour comparaison (minuscules, sans accents ni ponctuation).
+  String _normTitle(String s) {
+    var out = s.toLowerCase();
+    const accents = {
+      'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a', 'ã': 'a', 'å': 'a', 'ç': 'c',
+      'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ì': 'i', 'î': 'i', 'ï': 'i',
+      'í': 'i', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'ó': 'o', 'õ': 'o', 'ù': 'u',
+      'û': 'u', 'ü': 'u', 'ú': 'u', 'ñ': 'n', 'œ': 'oe', 'æ': 'ae',
+    };
+    accents.forEach((k, v) => out = out.replaceAll(k, v));
+    return out
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  /// Le résultat correspond-il au livre ? Égalité de titre, ou (titres à
+  /// plusieurs mots) le résultat commence par le titre du livre suivi d'un
+  /// sous-titre — pour ne pas confondre « Dune » et « Dune Messiah ».
+  bool _titleMatches(String bookTitle, String resultTitle) {
+    final b = _normTitle(bookTitle);
+    final r = _normTitle(resultTitle);
+    if (b.isEmpty || r.isEmpty) return false;
+    if (b == r) return true;
+    return b.contains(' ') && r.startsWith('$b ');
+  }
+
+  Future<void> _select(String url) async {
+    // Pour une couverture OpenLibrary, on enregistre la version large (-L) plutôt
+    // que la vignette (-M) affichée dans la liste.
+    final persisted = url.contains('covers.openlibrary.org')
+        ? url.replaceAll('-M.jpg', '-L.jpg')
+        : url;
+    setState(() => _selectedUrl = persisted);
+    await ref.read(booksRepositoryProvider).updateCover(widget.book.id, persisted);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Couverture mise à jour'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: () => Navigator.of(context).maybePop(),
-        child: Stack(
+      body: SafeArea(
+        child: Column(
           children: [
-            Positioned.fill(
-              child: InteractiveViewer(
-                minScale: 1,
-                maxScale: 5,
-                child: Center(
-                  // Zoom depuis la couverture tapée sur la fiche (Hero) : la
-                  // couverture s'agrandit depuis sa position jusqu'au plein
-                  // écran, et inversement au retour.
-                  child: Hero(
-                    tag: 'book_cover_${book.id}',
-                    child: BookCover(
-                      book: book,
-                      fit: BoxFit.contain,
-                      borderRadius: 0,
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                tooltip: 'Fermer',
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).maybePop(),
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 5,
+                  child: Center(
+                    child: Hero(
+                      tag: 'book_cover_${widget.book.id}',
+                      child: _selectedUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: _selectedUrl!,
+                              fit: BoxFit.contain,
+                            )
+                          : BookCover(
+                              book: widget.book,
+                              fit: BoxFit.contain,
+                              borderRadius: 0,
+                            ),
                     ),
                   ),
                 ),
               ),
             ),
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topRight,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  tooltip: 'Fermer',
-                  onPressed: () => Navigator.of(context).maybePop(),
-                ),
-              ),
-            ),
+            _buildAlternatives(),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildAlternatives() {
+    if (_loading) {
+      return const SizedBox(
+        height: 150,
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (_alternatives.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 168,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Text(
+              'Autres couvertures',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: _alternatives.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, i) {
+                final opt = _alternatives[i];
+                final selected = _selectedUrl == opt.url;
+                return GestureDetector(
+                  onTap: () => _select(opt.url),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          border: selected
+                              ? Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 3,
+                                )
+                              : null,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: CachedNetworkImage(
+                          imageUrl: opt.url,
+                          width: 80,
+                          height: 110,
+                          fit: BoxFit.cover,
+                          placeholder: (c, _) => Container(
+                            width: 80,
+                            height: 110,
+                            color: Colors.white10,
+                          ),
+                          errorWidget: (c, _, _) => Container(
+                            width: 80,
+                            height: 110,
+                            color: Colors.white10,
+                            child: const Icon(Icons.broken_image,
+                                color: Colors.white30),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        opt.source,
+                        style:
+                            const TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoverOption {
+  const _CoverOption({required this.url, required this.source});
+  final String url;
+  final String source;
 }

@@ -87,6 +87,18 @@ class BooksRepository {
     )..where((tbl) => tbl.id.equals(id))).write(book);
   }
 
+  /// Remplace la couverture par une URL (et efface une éventuelle couverture
+  /// locale, pour que la nouvelle s'affiche partout).
+  Future<int> updateCover(int bookId, String coverUrl) {
+    return (_db.update(_db.books)..where((tbl) => tbl.id.equals(bookId))).write(
+      BooksCompanion(
+        coverUrl: Value(coverUrl),
+        coverPath: const Value(null),
+        dateModified: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<int> deleteBook(int id) => _db.deleteBook(id);
 
   // Favorites
