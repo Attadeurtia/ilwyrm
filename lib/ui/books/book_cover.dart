@@ -95,28 +95,63 @@ class BookCover extends StatelessWidget {
       fit: fit,
       width: double.infinity,
       height: double.infinity,
-      fadeInDuration: const Duration(milliseconds: 150),
-      // Pendant le chargement, on montre déjà le repli titre/auteur plutôt
-      // qu'une case vide : évite le « flash » avant l'apparition du texte quand
-      // la couverture finit par échouer, et reste informatif si elle charge.
+      // Pas de fondu : l'image s'affiche directement une fois chargée. Pendant
+      // le chargement, on montre déjà le repli coloré titre/auteur (plutôt qu'une
+      // case vide), qui reste informatif si la couverture finit par échouer.
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
       placeholder: (context, _) => _fallback(context),
       errorWidget: (context, _, _) => _chain(context, urls, index + 1),
     );
   }
 
-  Widget _background(BuildContext context, {Widget? child}) => Container(
-        color: Theme.of(context).colorScheme.tertiaryContainer,
+  /// Couleur de fond du repli : une teinte stable par livre (dérivée du titre)
+  /// mais avec la luminosité/saturation du thème (claire en thème clair, sombre
+  /// en thème sombre) — pour varier les couleurs sans sortir du thème, au lieu
+  /// d'avoir toujours la même.
+  Color _placeholderColor(BuildContext context) {
+    final base =
+        HSLColor.fromColor(Theme.of(context).colorScheme.secondaryContainer);
+    final saturation = base.saturation.clamp(0.32, 0.55).toDouble();
+    return HSLColor.fromAHSL(
+      1,
+      _stableHue().toDouble(),
+      saturation,
+      base.lightness,
+    ).toColor();
+  }
+
+  /// Texte lisible sur [background], quelle que soit la teinte générée.
+  Color _placeholderForeground(Color background) =>
+      background.computeLuminance() > 0.5
+          ? Colors.black.withValues(alpha: 0.72)
+          : Colors.white.withValues(alpha: 0.92);
+
+  /// Teinte (0–359) déterministe à partir du titre (ou de l'id à défaut) : le
+  /// même livre garde toujours la même couleur.
+  int _stableHue() {
+    final key = book.title.trim().isNotEmpty ? book.title.trim() : '${book.id}';
+    var h = 0;
+    for (final unit in key.codeUnits) {
+      h = (h * 31 + unit) & 0x7fffffff;
+    }
+    return h % 360;
+  }
+
+  Widget _background(Color background, {Widget? child}) => Container(
+        color: background,
         alignment: Alignment.center,
         child: child,
       );
 
   Widget _fallback(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final background = _placeholderColor(context);
+    final foreground = _placeholderForeground(background);
     final author = book.authorText;
 
     if (compact) {
       return _background(
-        context,
+        background,
         child: Padding(
           padding: const EdgeInsets.all(2),
           child: Text(
@@ -124,14 +159,14 @@ class BookCover extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 8, color: scheme.onTertiaryContainer),
+            style: TextStyle(fontSize: 8, color: foreground),
           ),
         ),
       );
     }
 
     return _background(
-      context,
+      background,
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(
@@ -143,7 +178,7 @@ class BookCover extends StatelessWidget {
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: scheme.onTertiaryContainer,
+                    color: foreground,
                     fontWeight: FontWeight.bold,
                   ),
             ),
@@ -155,7 +190,7 @@ class BookCover extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: scheme.onTertiaryContainer.withValues(alpha: 0.8),
+                      color: foreground.withValues(alpha: 0.8),
                     ),
               ),
             ],
