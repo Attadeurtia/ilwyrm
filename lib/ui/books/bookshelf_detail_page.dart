@@ -151,31 +151,70 @@ class BookDetailsPage extends ConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Cover Image — tap pour l'afficher en plein écran.
+                    // Couverture — tap pour l'agrandir et proposer des
+                    // couvertures alternatives. Même comportement qu'il y ait une
+                    // couverture ou non : sans couverture, ça permet d'en choisir
+                    // une (un indice « Couverture » l'indique).
                     GestureDetector(
-                      onTap: _hasCover(book)
-                          ? () => _openFullscreenCover(context, book)
-                          : null,
-                      child: Hero(
-                        tag: 'book_cover_${book.id}',
-                        child: Container(
-                          width: 140,
-                          height: 210,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.shadow.withValues(alpha: 0.2),
-                                blurRadius: 10,
-                                offset: const Offset(0, 5),
+                      onTap: () => _openFullscreenCover(context, book),
+                      child: Stack(
+                        children: [
+                          Hero(
+                            tag: 'book_cover_${book.id}',
+                            child: Container(
+                              width: 140,
+                              height: 210,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.shadow.withValues(alpha: 0.2),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 5),
+                                  ),
+                                ],
                               ),
-                            ],
+                              clipBehavior: Clip.antiAlias,
+                              child: BookCover(book: book, borderRadius: 16),
+                            ),
                           ),
-                          clipBehavior: Clip.antiAlias,
-                          child: BookCover(book: book, borderRadius: 16),
-                        ),
+                          if (!_hasCover(book))
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.only(
+                                    bottomLeft: Radius.circular(16),
+                                    bottomRight: Radius.circular(16),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_photo_alternate_outlined,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Couverture',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 24),
@@ -309,13 +348,7 @@ class BookDetailsPage extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  book.reviewContent ?? 'Aucun résumé disponible.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.5,
-                  ),
-                ),
+                _BookSummary(book: book),
                 const SizedBox(height: 32),
                 _BookMetadataTable(book: book),
                 const SizedBox(height: 32),
@@ -1048,4 +1081,115 @@ class _CoverOption {
   const _CoverOption({required this.url, required this.source});
   final String url;
   final String source;
+}
+
+/// Affiche le résumé du livre : celui déjà en base, sinon le récupère via les
+/// APIs (Google Books, OpenLibrary, Inventaire) et le met en cache.
+class _BookSummary extends ConsumerStatefulWidget {
+  final Book book;
+
+  const _BookSummary({required this.book});
+
+  @override
+  ConsumerState<_BookSummary> createState() => _BookSummaryState();
+}
+
+class _BookSummaryState extends ConsumerState<_BookSummary> {
+  String? _summary;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final stored = widget.book.description?.trim();
+    if (stored != null && stored.isNotEmpty) {
+      _summary = _cleanHtml(stored);
+    } else {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final book = widget.book;
+    final isbn13 = book.isbn13;
+    final isbn10 = book.isbn10;
+    final query = (isbn13 != null && isbn13.isNotEmpty)
+        ? isbn13
+        : (isbn10 != null && isbn10.isNotEmpty)
+            ? isbn10
+            : [book.title, book.authorText ?? '']
+                .where((s) => s.trim().isNotEmpty)
+                .join(' ');
+    String? desc;
+    if (query.trim().isNotEmpty) {
+      try {
+        final agg = await BookSearchService().search(query);
+        for (final b in agg.merged) {
+          final d = b.description?.trim();
+          if (d != null && d.isNotEmpty) {
+            desc = _cleanHtml(d);
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    setState(() {
+      _summary = desc;
+      _loading = false;
+    });
+    if (desc != null && desc.isNotEmpty) {
+      // Mise en cache pour les prochaines ouvertures (et l'hors-ligne).
+      ref.read(booksRepositoryProvider).updateDescription(widget.book.id, desc);
+    }
+  }
+
+  /// Nettoie le HTML léger que renvoient certaines sources (Google Books).
+  String _cleanHtml(String s) {
+    var out = s.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+    out = out.replaceAll(RegExp(r'</p>', caseSensitive: false), '\n\n');
+    out = out.replaceAll(RegExp(r'<[^>]+>'), '');
+    out = out
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&apos;', "'")
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&nbsp;', ' ');
+    return out.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Chargement du résumé…',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ],
+      );
+    }
+    final text = (_summary != null && _summary!.isNotEmpty)
+        ? _summary!
+        : 'Aucun résumé disponible.';
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.5,
+          ),
+    );
+  }
 }
