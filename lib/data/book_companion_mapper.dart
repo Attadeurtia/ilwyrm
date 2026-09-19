@@ -17,6 +17,8 @@ extension ExternalBookCompanion on ExternalBook {
       authorText: Value(authorText),
       publisher:
           publisher != null ? Value(publisher) : const Value.absent(),
+      description:
+          description != null ? Value(description) : const Value.absent(),
       publicationYear: firstPublishYear != null
           ? Value(firstPublishYear)
           : const Value.absent(),
