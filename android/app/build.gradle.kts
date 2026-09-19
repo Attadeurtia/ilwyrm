@@ -52,6 +52,12 @@ android {
             } else {
                 signingConfig = signingConfigs.getByName("debug")
             }
+            // Désactive R8/minification en release : ML Kit (texte latin) référence
+            // des recognizers optionnels (chinois, japonais, coréen, devanagari)
+            // absents de l'app, ce qui fait échouer R8. On évite aussi tout risque
+            // de suppression de classes ML Kit nécessaires à l'exécution.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
