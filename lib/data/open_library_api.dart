@@ -13,6 +13,73 @@ class OpenLibraryApi implements BookSearchApi {
     return _searchByText(query);
   }
 
+  /// Couvertures des différentes ÉDITIONS d'une œuvre (modèle OpenLibrary
+  /// Work → Editions) : chaque édition peut avoir sa propre couverture, ce qui
+  /// donne un choix de couvertures alternatives bien plus riche qu'une seule.
+  ///
+  /// Résout la clé d'œuvre depuis [openlibraryKey] (clé d'œuvre `OL…W`, clé
+  /// d'édition `OL…M`) ou, à défaut, depuis un [isbn], puis interroge
+  /// `/works/{id}/editions.json`.
+  Future<List<String>> fetchEditionCovers({
+    String? openlibraryKey,
+    String? isbn,
+    int limit = 50,
+  }) async {
+    final workKey = await _resolveWorkKey(openlibraryKey, isbn);
+    if (workKey == null) return const [];
+    try {
+      final res = await http
+          .get(Uri.parse('$_baseUrl$workKey/editions.json?limit=$limit'));
+      if (res.statusCode != 200) return const [];
+      final data = json.decode(res.body);
+      final entries = data['entries'] as List? ?? const [];
+      final coverIds = <int>{};
+      for (final e in entries) {
+        final covers = (e as Map)['covers'] as List?;
+        if (covers != null) {
+          for (final c in covers) {
+            if (c is int && c > 0) coverIds.add(c);
+          }
+        }
+      }
+      return coverIds
+          .map((id) => 'https://covers.openlibrary.org/b/id/$id-M.jpg')
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Renvoie la clé d'œuvre (`/works/OL…W`) à partir d'une clé OL ou d'un ISBN.
+  Future<String?> _resolveWorkKey(String? openlibraryKey, String? isbn) async {
+    final k = openlibraryKey?.trim();
+    if (k != null && k.isNotEmpty) {
+      if (k.contains('/works/')) return k;
+      if (k.endsWith('W')) return '/works/$k';
+      if (k.endsWith('M')) {
+        final work = await _workFromEdition('/books/${k.split('/').last}');
+        if (work != null) return work;
+      }
+    }
+    if (isbn != null && isbn.trim().isNotEmpty) {
+      return _workFromEdition('/isbn/${cleanIsbn(isbn)}');
+    }
+    return null;
+  }
+
+  Future<String?> _workFromEdition(String editionPath) async {
+    try {
+      final res = await http.get(Uri.parse('$_baseUrl$editionPath.json'));
+      if (res.statusCode != 200) return null;
+      final data = json.decode(res.body);
+      final works = data['works'] as List?;
+      if (works != null && works.isNotEmpty) {
+        return (works.first as Map)['key'] as String?;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Recherche via l'endpoint ISBN dédié : /isbn/{isbn}.json
   Future<List<ExternalBook>> _searchByIsbn(String isbn) async {
     final clean = cleanIsbn(isbn);

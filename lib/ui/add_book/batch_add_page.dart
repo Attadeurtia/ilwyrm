@@ -4,6 +4,7 @@ import '../../data/database.dart';
 import '../../data/book_companion_mapper.dart';
 import '../../data/book_search_api.dart';
 import '../../data/book_search_service.dart';
+import '../../data/library_index.dart';
 import '../theme_extensions.dart';
 import 'scan_cover_page.dart';
 
@@ -63,18 +64,28 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
 
   Future<void> _addAll() async {
     final database = ref.read(databaseProvider);
-    int addedCount = 0;
+    // Contrôle anti-doublon faisant autorité (lecture fraîche de la base) : on
+    // n'insère pas un livre déjà présent.
+    final index = buildLibraryIndex(await database.getAllBooks());
+    int added = 0;
+    int skipped = 0;
 
-    for (final isbn in _selectedBooks.keys) {
-      final book = _selectedBooks[isbn]!;
+    for (final book in _selectedBooks.values) {
+      if (index.contains(book)) {
+        skipped++;
+        continue;
+      }
       await database.into(database.books).insert(book.toBooksCompanion());
-      addedCount++;
+      added++;
     }
 
     if (mounted) {
+      final message = skipped > 0
+          ? '$added livre(s) ajouté(s), $skipped déjà présent(s) ignoré(s)'
+          : '$added livre(s) ajouté(s) !';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('$addedCount livres ajoutés !')));
+      ).showSnackBar(SnackBar(content: Text(message)));
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
@@ -139,6 +150,10 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
   @override
   Widget build(BuildContext context) {
     final bookList = _selectedBooks.entries.toList();
+    final libraryIndex =
+        ref.watch(libraryIndexProvider).value ?? LibraryIndex.empty;
+    final toAdd =
+        _selectedBooks.values.where((b) => !libraryIndex.contains(b)).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -219,6 +234,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                       final isbn = entry.key;
                       final book = entry.value;
                       final candidateCount = _candidates[isbn]?.length ?? 0;
+                      final inLibrary = libraryIndex.contains(book);
 
                       return ListTile(
                         leading: book.coverUrl != null
@@ -235,6 +251,15 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(book.authorText),
+                            if (inLibrary)
+                              Text(
+                                'Déjà dans la bibliothèque',
+                                style: TextStyle(
+                                  color: context.semanticColors.warning,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             if (candidateCount > 1)
                               Text(
                                 'Source: ${book.source} (Tap pour changer)',
@@ -264,9 +289,14 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: ElevatedButton.icon(
-                    onPressed: _selectedBooks.isNotEmpty ? _addAll : null,
+                    onPressed: toAdd > 0 ? _addAll : null,
                     icon: const Icon(Icons.playlist_add),
-                    label: Text('Ajouter ${_selectedBooks.length} livres'),
+                    label: Text(
+                      toAdd == _selectedBooks.length
+                          ? 'Ajouter $toAdd livre(s)'
+                          : 'Ajouter $toAdd livre(s) · '
+                                '${_selectedBooks.length - toAdd} déjà présent(s)',
+                    ),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(50),
                     ),
