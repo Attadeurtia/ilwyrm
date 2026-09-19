@@ -8,12 +8,22 @@ import '../../data/database.dart';
 import '../../data/repositories/books_repository.dart';
 import '../../data/book_search_api.dart';
 import '../../data/enums.dart';
+import '../../data/publishers.dart';
 
 class EditBookPage extends ConsumerStatefulWidget {
   final ExternalBook? initialBook;
   final Book? existingBook;
 
-  const EditBookPage({super.key, this.initialBook, this.existingBook});
+  /// Chemin d'une couverture locale déjà capturée (ex. photo prise lors du scan
+  /// OCR) à pré-remplir pour un nouveau livre.
+  final String? initialCoverPath;
+
+  const EditBookPage({
+    super.key,
+    this.initialBook,
+    this.existingBook,
+    this.initialCoverPath,
+  });
 
   @override
   ConsumerState<EditBookPage> createState() => _EditBookPageState();
@@ -77,6 +87,7 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
       _pageCountController = TextEditingController(
         text: widget.initialBook?.numberOfPages?.toString() ?? '',
       );
+      _localCoverPath = widget.initialCoverPath;
     }
   }
 
@@ -329,12 +340,32 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
               ),
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _publisherController,
-              decoration: const InputDecoration(
-                labelText: 'Éditeur',
-                border: OutlineInputBorder(),
-              ),
+            // Éditeur avec autocomplétion des grands éditeurs. Le champ affiché
+            // utilise le contrôleur d'Autocomplete ; on recopie sa valeur dans
+            // _publisherController (source lue à l'enregistrement).
+            Autocomplete<String>(
+              initialValue: TextEditingValue(text: _publisherController.text),
+              optionsBuilder: (textEditingValue) {
+                final input = textEditingValue.text.trim().toLowerCase();
+                if (input.isEmpty) return const Iterable<String>.empty();
+                return kMajorPublishers
+                    .where((p) => p.toLowerCase().contains(input))
+                    .take(8);
+              },
+              onSelected: (selection) => _publisherController.text = selection,
+              fieldViewBuilder:
+                  (context, controller, focusNode, onFieldSubmitted) {
+                return TextFormField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  decoration: const InputDecoration(
+                    labelText: 'Éditeur',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => _publisherController.text = value,
+                  onFieldSubmitted: (_) => onFieldSubmitted(),
+                );
+              },
             ),
             const SizedBox(height: 16),
             TextFormField(
