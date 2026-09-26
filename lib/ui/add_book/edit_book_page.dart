@@ -14,6 +14,7 @@ import '../../data/book_search_api.dart';
 import '../../data/enums.dart';
 import '../../data/publishers.dart';
 import '../../l10n/l10n.dart';
+import '../adaptive.dart';
 import '../books/book_cover.dart';
 import '../books/bookshelf_detail_page.dart';
 
@@ -361,7 +362,12 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: centeredPadding(
+            MediaQuery.sizeOf(context).width,
+            maxWidth: 640,
+            top: 16,
+            bottom: 16,
+          ),
           children: [
             _coverPreview(context),
             const SizedBox(height: 24),

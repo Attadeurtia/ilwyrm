@@ -18,6 +18,7 @@ import '../home/availability_provider.dart';
 import '../theme_extensions.dart';
 import '../../data/enums.dart';
 import '../../l10n/l10n.dart';
+import '../adaptive.dart';
 
 class BookDetailsPage extends ConsumerWidget {
   final int bookId;
@@ -142,7 +143,13 @@ class BookDetailsPage extends ConsumerWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        // Centré sur grand écran (ordinateur) pour garder des lignes lisibles.
+        padding: centeredPadding(
+          MediaQuery.sizeOf(context).width,
+          maxWidth: 840,
+          top: 16,
+          bottom: 16,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -997,59 +1004,61 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
             ),
           ),
           Expanded(
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: _alternatives.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, i) {
-                final opt = _alternatives[i];
-                final selected = identical(_selected, opt);
-                return GestureDetector(
-                  onTap: () => _select(opt),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          border: selected
-                              ? Border.all(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  width: 3,
-                                )
-                              : null,
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: CachedNetworkImage(
-                          imageUrl: opt.url,
-                          width: 80,
-                          height: 110,
-                          fit: BoxFit.cover,
-                          placeholder: (c, _) => Container(
+            child: MouseDragScroll(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _alternatives.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, i) {
+                  final opt = _alternatives[i];
+                  final selected = identical(_selected, opt);
+                  return GestureDetector(
+                    onTap: () => _select(opt),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            border: selected
+                                ? Border.all(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    width: 3,
+                                  )
+                                : null,
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: CachedNetworkImage(
+                            imageUrl: opt.url,
                             width: 80,
                             height: 110,
-                            color: Colors.white10,
-                          ),
-                          errorWidget: (c, _, _) => Container(
-                            width: 80,
-                            height: 110,
-                            color: Colors.white10,
-                            child: const Icon(Icons.broken_image,
-                                color: Colors.white30),
+                            fit: BoxFit.cover,
+                            placeholder: (c, _) => Container(
+                              width: 80,
+                              height: 110,
+                              color: Colors.white10,
+                            ),
+                            errorWidget: (c, _, _) => Container(
+                              width: 80,
+                              height: 110,
+                              color: Colors.white10,
+                              child: const Icon(Icons.broken_image,
+                                  color: Colors.white30),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        opt.source,
-                        style:
-                            const TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                        const SizedBox(height: 4),
+                        Text(
+                          opt.source,
+                          style:
+                              const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],

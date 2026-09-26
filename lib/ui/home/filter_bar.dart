@@ -7,6 +7,7 @@ import 'filter_provider.dart';
 import '../../data/database.dart';
 import '../../data/repositories/books_repository.dart';
 import '../../l10n/l10n.dart';
+import '../adaptive.dart';
 import 'tag_filter_provider.dart';
 
 class FilterBar extends ConsumerWidget {
@@ -21,34 +22,36 @@ class FilterBar extends ConsumerWidget {
 
     return SizedBox(
       height: 50,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: tags.length + 1, // +1 for Favoris
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            // Favoris Filter
-            final isSelected = selectedFilters.contains('Favoris');
+      child: MouseDragScroll(
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          scrollDirection: Axis.horizontal,
+          itemCount: tags.length + 1, // +1 for Favoris
+          separatorBuilder: (context, index) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              // Favoris Filter
+              final isSelected = selectedFilters.contains('Favoris');
+              return FilterChip(
+                label: Text(context.l10n.favoritesFilter),
+                selected: isSelected,
+                onSelected: (selected) {
+                  ref.read(filterProvider.notifier).toggleFilter('Favoris');
+                },
+              );
+            }
+
+            final tag = tags[index - 1];
+            final isSelected = selectedTagId.contains(tag.id);
             return FilterChip(
-              label: Text(context.l10n.favoritesFilter),
+              label: Text(tag.name),
               selected: isSelected,
               onSelected: (selected) {
-                ref.read(filterProvider.notifier).toggleFilter('Favoris');
+                ref.read(selectedTagProvider.notifier).toggle(tag.id);
               },
             );
-          }
-
-          final tag = tags[index - 1];
-          final isSelected = selectedTagId.contains(tag.id);
-          return FilterChip(
-            label: Text(tag.name),
-            selected: isSelected,
-            onSelected: (selected) {
-              ref.read(selectedTagProvider.notifier).toggle(tag.id);
-            },
-          );
-        },
+          },
+        ),
       ),
     );
   }

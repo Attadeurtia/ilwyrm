@@ -10,6 +10,7 @@ import '../../data/csv_service.dart';
 import '../../data/database.dart';
 import '../../data/settings_repository.dart';
 import '../../l10n/l10n.dart';
+import '../adaptive.dart';
 import '../stats/stats_page.dart';
 import '../theme_extensions.dart';
 
@@ -54,11 +55,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         return;
       }
 
-      final file = await _csvService.exportToCsv();
-
-      await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], text: l10n.exportShareText),
-      );
+      if (isDesktop) {
+        // Pas de partage de fichier sur ordinateur : on propose d'enregistrer
+        // le CSV où l'on veut (fenêtre de fichiers native du bureau).
+        final path = await FilePicker.platform.saveFile(
+          dialogTitle: l10n.exportCsvTitle,
+          fileName: 'ilwyrm_export.csv',
+          type: FileType.custom,
+          allowedExtensions: ['csv'],
+        );
+        if (path == null) return; // Enregistrement annulé.
+        await File(path).writeAsString(await _csvService.buildCsv());
+      } else {
+        final file = await _csvService.exportToCsv();
+        await SharePlus.instance.share(
+          ShareParams(files: [XFile(file.path)], text: l10n.exportShareText),
+        );
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -268,6 +281,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
+              padding: centeredPadding(
+                MediaQuery.sizeOf(context).width,
+                maxWidth: 720,
+                minimum: 0,
+              ),
               children: [
                 ListTile(
                   leading: const Icon(Icons.insights_outlined),

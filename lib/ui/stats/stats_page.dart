@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../data/library_stats.dart';
 import '../../l10n/l10n.dart';
+import '../adaptive.dart';
 import '../theme_extensions.dart';
 
 /// Statistiques de lecture : chiffres clés de la bibliothèque, puis le détail
@@ -39,7 +40,11 @@ class _StatsPageState extends ConsumerState<StatsPage> {
                   : const CircularProgressIndicator(),
             )
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              padding: centeredPadding(
+                MediaQuery.sizeOf(context).width,
+                top: 8,
+                bottom: 32,
+              ),
               children: [
                 _SectionTitle(l10n.statsLibrarySection),
                 _LibraryOverview(stats: stats),
@@ -76,20 +81,22 @@ class _StatsPageState extends ConsumerState<StatsPage> {
 
     return [
       // Filtre : une seule rangée, au-dessus de tout ce qu'il concerne.
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final y in years)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text('$y'),
-                  selected: y == year,
-                  onSelected: (_) => setState(() => _year = y),
+      MouseDragScroll(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final y in years)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text('$y'),
+                    selected: y == year,
+                    onSelected: (_) => setState(() => _year = y),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
       const SizedBox(height: 16),
@@ -205,7 +212,10 @@ class _LibraryOverview extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 12.0;
-        final width = (constraints.maxWidth - spacing * 2) / 3;
+        // Une seule rangée de 5 tuiles quand la place le permet.
+        final columns = constraints.maxWidth >= 600 ? 5 : 3;
+        final width =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
         return Wrap(
           spacing: spacing,
           runSpacing: spacing,
@@ -376,7 +386,8 @@ class _ColumnChartCardState extends State<_ColumnChartCard> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
-    final selected = _selected ?? (widget.highlighted >= 0 ? widget.highlighted : null);
+    final selected =
+        _selected ?? (widget.highlighted >= 0 ? widget.highlighted : null);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
@@ -571,7 +582,12 @@ class _ColumnChart extends StatelessWidget {
           Expanded(
             child: Stack(
               children: [
-                Positioned(left: 0, right: 0, top: _headroom, child: hairline()),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: _headroom,
+                  child: hairline(),
+                ),
                 Positioned(
                   left: 0,
                   right: 0,

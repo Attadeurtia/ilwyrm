@@ -206,5 +206,6 @@
   "statsMonthColumn": "Monat",
   "statsYearColumn": "Jahr",
   "statsBooksColumn": "Bücher",
-  "statsChartHint": "Tippe auf einen Balken, um seinen Wert zu sehen."
+  "statsChartHint": "Tippe auf einen Balken, um seinen Wert zu sehen.",
+  "refreshCoversTooltip": "Cover aktualisieren (F5)"
 }

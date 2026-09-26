@@ -9,6 +9,7 @@ import '../../data/book_search_service.dart';
 import '../../data/database.dart';
 import '../../data/library_index.dart';
 import '../../l10n/l10n.dart';
+import '../adaptive.dart';
 import '../books/bookshelf_detail_page.dart';
 import 'edit_book_page.dart';
 
@@ -267,6 +268,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
       return _emptyState(anyError: _results.errors.values.any((e) => e != null));
     }
     return ListView.builder(
+      padding: centeredPadding(MediaQuery.sizeOf(context).width, minimum: 0),
       itemCount: books.length,
       itemBuilder: (context, index) =>
           _bookTile(books[index], libraryIndex, showBadges: true),
@@ -289,6 +291,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
     final books = _results.bySource[source] ?? const [];
     if (books.isEmpty) return _emptyState();
     return ListView.builder(
+      padding: centeredPadding(MediaQuery.sizeOf(context).width, minimum: 0),
       itemCount: books.length,
       itemBuilder: (context, index) => _bookTile(books[index], libraryIndex),
     );
