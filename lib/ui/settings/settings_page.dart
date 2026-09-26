@@ -328,7 +328,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: l10n.appTitle,
-      applicationVersion: '2.4.0',
+      applicationVersion: '2.5.0',
       applicationIcon: const Icon(Icons.menu_book, size: 48),
       applicationLegalese: '© 2025 Ilwyrm',
       children: [
