@@ -110,6 +110,21 @@ class AppDatabase extends _$AppDatabase {
     return query.map((row) => row.readTable(tags)).get();
   }
 
+  /// Tags de TOUS les livres en une seule requête (id du livre → ses tags),
+  /// plutôt qu'une requête par livre (export CSV).
+  Future<Map<int, List<Tag>>> getTagsByBook() async {
+    final rows = await select(bookTags).join([
+      innerJoin(tags, tags.id.equalsExp(bookTags.tagId)),
+    ]).get();
+    final result = <int, List<Tag>>{};
+    for (final row in rows) {
+      result
+          .putIfAbsent(row.readTable(bookTags).bookId, () => [])
+          .add(row.readTable(tags));
+    }
+    return result;
+  }
+
   Future<void> addTagToBook(int bookId, int tagId) {
     return into(bookTags).insert(
       BookTagsCompanion(bookId: Value(bookId), tagId: Value(tagId)),

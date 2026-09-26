@@ -138,6 +138,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
+  /// Ouvre un lien dans le navigateur. Pas de canLaunchUrl() préalable : sur
+  /// Android 11+, il renvoie faux sans déclaration `<queries>` dans le manifeste,
+  /// et le lien ne s'ouvrait jamais.
+  Future<void> _openLink(String url) async {
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
   void _showImportErrors(List<String> errors) {
     showDialog(
       context: context,
@@ -239,14 +246,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                   decoration: TextDecoration.underline,
                                 ),
                                 recognizer: TapGestureRecognizer()
-                                  ..onTap = () async {
-                                    final url = Uri.parse(
-                                      'https://github.com/attadeurtia',
-                                    );
-                                    if (await canLaunchUrl(url)) {
-                                      await launchUrl(url);
-                                    }
-                                  },
+                                  ..onTap = () =>
+                                      _openLink('https://github.com/attadeurtia'),
                               ),
                               const TextSpan(text: '.'),
                             ],
@@ -268,14 +269,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                   decoration: TextDecoration.underline,
                                 ),
                                 recognizer: TapGestureRecognizer()
-                                  ..onTap = () async {
-                                    final url = Uri.parse(
-                                      'https://github.com/attadeurtia/ilwyrm',
-                                    );
-                                    if (await canLaunchUrl(url)) {
-                                      await launchUrl(url);
-                                    }
-                                  },
+                                  ..onTap = () => _openLink(
+                                    'https://github.com/attadeurtia/ilwyrm',
+                                  ),
                               ),
                             ],
                           ),
@@ -368,18 +364,30 @@ class _ImportProgressDialogState extends State<_ImportProgressDialog> {
   }
 
   Future<void> _startImport() async {
-    final result = await widget.csvService.importFromCsv(
-      widget.file,
-      fetchCovers: widget.fetchCovers,
-      onProgress: (current, total) {
-        if (mounted) {
-          setState(() {
-            _current = current;
-            _total = total;
-          });
-        }
-      },
-    );
+    CsvImportResult result;
+    try {
+      result = await widget.csvService.importFromCsv(
+        widget.file,
+        fetchCovers: widget.fetchCovers,
+        onProgress: (current, total) {
+          if (mounted) {
+            setState(() {
+              _current = current;
+              _total = total;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      // Fichier illisible (encodage…) : on ferme quand même ce dialogue non
+      // annulable, avec l'erreur, au lieu de bloquer l'écran.
+      result = CsvImportResult(
+        importedCount: 0,
+        skippedCount: 0,
+        totalCount: 0,
+        errors: ['Import impossible : $e'],
+      );
+    }
 
     if (mounted) {
       Navigator.pop(context, result);
