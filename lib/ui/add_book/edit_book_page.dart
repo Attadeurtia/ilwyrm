@@ -1,14 +1,20 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import '../../data/book_companion_mapper.dart';
+import '../../data/cover_storage.dart';
 import '../../data/database.dart';
+import '../../data/library_index.dart';
 import '../../data/repositories/books_repository.dart';
 import '../../data/book_search_api.dart';
 import '../../data/enums.dart';
 import '../../data/publishers.dart';
+import '../books/book_cover.dart';
+import '../books/bookshelf_detail_page.dart';
 
 class EditBookPage extends ConsumerStatefulWidget {
   final ExternalBook? initialBook;
@@ -102,15 +108,18 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
   }
 
   Future<void> _pickImage() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
+    // Image réduite (comme pour le scan de couverture) puis copiée dans le
+    // dossier de l'app : le fichier renvoyé par le sélecteur est temporaire et
+    // peut être effacé par le système (la couverture disparaîtrait).
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 2000,
+      imageQuality: 90,
     );
-
-    if (result != null) {
-      setState(() {
-        _localCoverPath = result.files.single.path;
-      });
-    }
+    if (picked == null) return;
+    final path = await persistCoverImage(picked.path);
+    if (!mounted) return;
+    setState(() => _localCoverPath = path);
   }
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
@@ -157,116 +166,186 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
     });
   }
 
-  Future<void> _saveBook() async {
-    if (_formKey.currentState!.validate()) {
-      final int? pageCount = int.tryParse(_pageCountController.text);
-      final int? year = int.tryParse(_yearController.text);
-      // Applique la règle d'unification statut ↔ dates avant d'enregistrer.
-      final dates = datesForShelf(
-        _status,
-        currentStart: _startDate,
-        currentFinish: _finishDate,
-      );
+  String? _textOrNull(TextEditingController c) {
+    final t = c.text.trim();
+    return t.isEmpty ? null : t;
+  }
 
-      if (widget.existingBook != null) {
-        // Update existing
-        await ref
-            .read(booksRepositoryProvider)
-            .updateBookData(
-              widget.existingBook!.id,
-              BooksCompanion(
-                title: drift.Value(_titleController.text),
-                authorText: drift.Value(_authorController.text),
-                publisher: drift.Value(
-                  _publisherController.text.isEmpty
-                      ? null
-                      : _publisherController.text,
-                ),
-                publicationYear: drift.Value(year),
-                pageCount: drift.Value(pageCount),
-                shelf: drift.Value(_status.id),
-                shelfName: drift.Value(_status.label),
-                startDate: drift.Value(dates.start),
-                finishDate: drift.Value(dates.finish),
-                coverPath: drift.Value(_localCoverPath),
-                coverUrl: widget.initialBook?.coverUrl != null
-                    ? drift.Value(widget.initialBook!.coverUrl)
-                    : const drift.Value.absent(),
-                dateModified: drift.Value(DateTime.now()),
-              ),
-            );
-      } else {
-        // Insert new
-        final book = BooksCompanion(
-          title: drift.Value(_titleController.text),
-          authorText: drift.Value(_authorController.text),
-          publisher: drift.Value(
-            _publisherController.text.isEmpty
-                ? null
-                : _publisherController.text,
-          ),
+  Future<void> _saveBook() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final title = _titleController.text.trim();
+    final author = _textOrNull(_authorController);
+    final publisher = _textOrNull(_publisherController);
+    final int? pageCount = int.tryParse(_pageCountController.text.trim());
+    final int? year = int.tryParse(_yearController.text.trim());
+    // Applique la règle d'unification statut ↔ dates avant d'enregistrer.
+    final dates = datesForShelf(
+      _status,
+      currentStart: _startDate,
+      currentFinish: _finishDate,
+    );
+    final repository = ref.read(booksRepositoryProvider);
+
+    if (widget.existingBook != null) {
+      await repository.updateBookData(
+        widget.existingBook!.id,
+        BooksCompanion(
+          title: drift.Value(title),
+          authorText: drift.Value(author),
+          publisher: drift.Value(publisher),
           publicationYear: drift.Value(year),
           pageCount: drift.Value(pageCount),
           shelf: drift.Value(_status.id),
           shelfName: drift.Value(_status.label),
           startDate: drift.Value(dates.start),
           finishDate: drift.Value(dates.finish),
-          openlibraryKey: widget.initialBook?.openlibraryKey != null
-              ? drift.Value(widget.initialBook!.openlibraryKey)
-              : const drift.Value.absent(),
-          inventaireId: widget.initialBook?.inventaireId != null
-              ? drift.Value(widget.initialBook!.inventaireId)
-              : const drift.Value.absent(),
-          wikidata: widget.initialBook?.wikidata != null
-              ? drift.Value(widget.initialBook!.wikidata)
-              : const drift.Value.absent(),
-          isbn13: widget.initialBook?.isbn13 != null
-              ? drift.Value(widget.initialBook!.isbn13)
-              : const drift.Value.absent(),
-          isbn10: widget.initialBook?.isbn10 != null
-              ? drift.Value(widget.initialBook!.isbn10)
-              : const drift.Value.absent(),
-          // coverId (numérique OpenLibrary) non exposé ici : on s'appuie sur
-          // coverUrl. BookCover sait retomber sur la couverture par ISBN/clé.
-          coverId: const drift.Value.absent(),
-          coverUrl: widget.initialBook?.coverUrl != null
-              ? drift.Value(widget.initialBook!.coverUrl)
-              : const drift.Value.absent(),
           coverPath: drift.Value(_localCoverPath),
-          dateAdded: drift.Value(DateTime.now()),
           dateModified: drift.Value(DateTime.now()),
-        );
-        await ref.read(booksRepositoryProvider).addBook(book);
-      }
+        ),
+      );
+    } else {
+      // Pas de doublon silencieux (saisie manuelle, scan de couverture) : même
+      // détection que la recherche (ISBN, identifiants, titre + auteur).
+      final candidate = (widget.initialBook ??
+              ExternalBook(key: 'manual', title: title, authorText: '', source: 'manual'))
+          .copyWith(title: title, authorText: author ?? '');
+      final existingId = buildLibraryIndex(
+        await repository.getAllBooks(),
+      ).findId(candidate);
+      if (existingId != null && !await _confirmDuplicate(existingId)) return;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.existingBook != null
-                  ? 'Livre modifié !'
-                  : 'Livre ajouté !',
-            ),
-          ),
-        );
-        Navigator.of(context).pop();
-      }
+      // Base = fiche externe complète (ISBN, identifiants, résumé, couverture),
+      // complétée/corrigée par le formulaire.
+      final now = DateTime.now();
+      final base = widget.initialBook?.toBooksCompanion() ?? const BooksCompanion();
+      await repository.addBook(
+        base.copyWith(
+          title: drift.Value(title),
+          authorText: drift.Value(author),
+          publisher: drift.Value(publisher),
+          publicationYear: drift.Value(year),
+          pageCount: drift.Value(pageCount),
+          shelf: drift.Value(_status.id),
+          shelfName: drift.Value(_status.label),
+          startDate: drift.Value(dates.start),
+          finishDate: drift.Value(dates.finish),
+          coverPath: drift.Value(_localCoverPath),
+          dateAdded: drift.Value(now),
+          dateModified: drift.Value(now),
+        ),
+      );
     }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.existingBook != null ? 'Livre modifié !' : 'Livre ajouté !',
+          ),
+        ),
+      );
+      Navigator.of(context).pop();
+    }
+  }
+
+  /// Le livre semble déjà présent : propose d'ouvrir sa fiche plutôt que de
+  /// créer un doublon. Renvoie vrai pour ajouter quand même.
+  Future<bool> _confirmDuplicate(int existingId) async {
+    if (!mounted) return false;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Déjà dans la bibliothèque'),
+        content: const Text(
+          'Ce livre semble déjà être dans ta bibliothèque.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'add'),
+            child: const Text('Ajouter quand même'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, 'open'),
+            child: const Text('Voir la fiche'),
+          ),
+        ],
+      ),
+    );
+    if (choice == 'open' && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => BookDetailsPage(bookId: existingId),
+        ),
+      );
+    }
+    return choice == 'add';
+  }
+
+  /// Aperçu de la couverture : photo choisie, sinon couverture actuelle du
+  /// livre, sinon celle du résultat de recherche, sinon une invite.
+  Widget _coverPreview(BuildContext context) {
+    final hint = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.add_a_photo,
+          size: 40,
+          color: Theme.of(context).colorScheme.outline,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Ajouter une couverture',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Theme.of(context).colorScheme.outline),
+        ),
+      ],
+    );
+    final existing = widget.existingBook;
+    final initialCoverUrl = widget.initialBook?.coverUrl;
+
+    Widget image = hint;
+    if (_localCoverPath != null) {
+      image = Image.file(
+        File(_localCoverPath!),
+        fit: BoxFit.cover,
+        cacheHeight: 600,
+        errorBuilder: (context, _, _) => hint,
+      );
+    } else if (existing != null &&
+        ((existing.coverUrl?.isNotEmpty ?? false) ||
+            existing.coverId != null ||
+            (existing.openlibraryKey?.isNotEmpty ?? false))) {
+      image = BookCover(book: existing, borderRadius: 0);
+    } else if (initialCoverUrl != null && initialCoverUrl.isNotEmpty) {
+      image = CachedNetworkImage(
+        imageUrl: initialCoverUrl,
+        fit: BoxFit.cover,
+        errorWidget: (context, _, _) => hint,
+      );
+    }
+
+    // Centré : dans une ListView, la largeur de 140 serait sinon ignorée (la
+    // couverture s'étirait en bandeau pleine largeur).
+    return Center(
+      child: GestureDetector(
+        onTap: _pickImage,
+        child: Container(
+          height: 200,
+          width: 140,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: image,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    ImageProvider? coverImage;
-    if (_localCoverPath != null) {
-      coverImage = FileImage(File(_localCoverPath!));
-    } else if (widget.existingBook?.openlibraryKey != null) {
-      coverImage = NetworkImage(
-        'https://covers.openlibrary.org/b/olid/${widget.existingBook!.openlibraryKey}-L.jpg',
-      );
-    } else if (widget.initialBook?.coverUrl != null) {
-      coverImage = NetworkImage(widget.initialBook!.coverUrl!);
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -283,40 +362,7 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: 200,
-                width: 140,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                  image: coverImage != null
-                      ? DecorationImage(image: coverImage, fit: BoxFit.cover)
-                      : null,
-                ),
-                child: coverImage == null
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_a_photo,
-                            size: 40,
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Ajouter une couverture',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
-                          ),
-                        ],
-                      )
-                    : null,
-              ),
-            ),
+            _coverPreview(context),
             const SizedBox(height: 24),
             TextFormField(
               controller: _titleController,
@@ -325,7 +371,7 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
                 border: OutlineInputBorder(),
               ),
               validator: (value) {
-                if (value == null || value.isEmpty) {
+                if (value == null || value.trim().isEmpty) {
                   return 'Veuillez entrer un titre';
                 }
                 return null;

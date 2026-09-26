@@ -17,9 +17,13 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
     detectionSpeed: DetectionSpeed.noDuplicates,
     facing: CameraFacing.back,
     torchEnabled: false,
+    // Un ISBN est toujours imprimé en EAN-13 : se limiter à ce format accélère
+    // la détection et ignore QR codes et autres codes-barres.
+    formats: const [BarcodeFormat.ean13],
   );
   final Set<String> _scannedIsbns = {};
   final Set<String> _duplicateIsbns = {};
+  final Set<String> _ignoredCodes = {};
 
   @override
   void dispose() {
@@ -30,7 +34,24 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
   void _onDetect(BarcodeCapture capture) {
     for (final barcode in capture.barcodes) {
       final isbn = barcode.rawValue;
-      if (isbn == null || _scannedIsbns.contains(isbn)) continue;
+      if (isbn == null ||
+          _scannedIsbns.contains(isbn) ||
+          _ignoredCodes.contains(isbn)) {
+        continue;
+      }
+
+      // Un EAN-13 de livre commence par 978/979 ; les autres (produits,
+      // magazines…) ne sont pas des ISBN et ne donneraient aucun résultat.
+      if (!isbn.startsWith('978') && !isbn.startsWith('979')) {
+        _ignoredCodes.add(isbn);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('« $isbn » n\'est pas un ISBN de livre : ignoré'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        continue;
+      }
 
       // Signale immédiatement si un livre avec cet ISBN est déjà en bibliothèque.
       final inLibrary =
