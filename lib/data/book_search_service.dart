@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'bnf_api.dart';
 import 'book_search_api.dart';
 import 'google_books_api.dart';
 import 'inventaire_api.dart';
 import 'open_library_api.dart';
+import 'settings_repository.dart';
 import 'text_normalize.dart';
 
 /// Libellés d'onglets exposés à l'UI.
@@ -14,12 +17,15 @@ const kBnf = 'BnF';
 const kInventaire = 'Inventaire';
 const kGoogleBooks = 'Google Books';
 
+/// Raison pour laquelle une source n'a pas répondu (traduite par l'interface).
+enum SearchError { timeout, quotaExceeded, accessDenied, unavailable }
+
 /// Résultat agrégé d'une recherche : une liste unifiée reclassée + les listes
 /// par source (déjà reclassées) + les erreurs éventuelles par source.
 class AggregatedResults {
   final List<ExternalBook> merged;
   final Map<String, List<ExternalBook>> bySource;
-  final Map<String, String?> errors;
+  final Map<String, SearchError?> errors;
 
   const AggregatedResults({
     required this.merged,
@@ -92,7 +98,7 @@ class BookSearchService {
       kInventaire: [],
       kGoogleBooks: [],
     };
-    final errors = <String, String?>{
+    final errors = <String, SearchError?>{
       kOpenLibrary: null,
       kBnf: null,
       kInventaire: null,
@@ -107,7 +113,7 @@ class BookSearchService {
         // Reclasse aussi chaque onglet de source avec notre scorer.
         bySource[label] = _rankByScore(books, trimmed);
       } on TimeoutException {
-        errors[label] = 'Délai dépassé';
+        errors[label] = SearchError.timeout;
       } catch (e) {
         errors[label] = _friendlyError(e);
       }
@@ -141,11 +147,11 @@ class BookSearchService {
     }
   }
 
-  String _friendlyError(Object e) {
+  SearchError _friendlyError(Object e) {
     final s = e.toString();
-    if (s.contains('429')) return 'Quota API dépassé';
-    if (s.contains('403')) return 'Accès refusé';
-    return 'Indisponible';
+    if (s.contains('429')) return SearchError.quotaExceeded;
+    if (s.contains('403')) return SearchError.accessDenied;
+    return SearchError.unavailable;
   }
 
   // ---------------------------------------------------------------------------
@@ -367,3 +373,9 @@ class _QueryTerms {
   final String text;
   final Set<String> tokens;
 }
+
+/// Service de recherche partagé, réglé sur la langue de l'app (les éditions
+/// dans cette langue sont privilégiées à pertinence comparable).
+final bookSearchServiceProvider = Provider<BookSearchService>(
+  (ref) => BookSearchService(targetLanguage: ref.watch(appLanguageProvider)),
+);

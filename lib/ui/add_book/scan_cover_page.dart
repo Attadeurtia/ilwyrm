@@ -7,18 +7,11 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../data/book_search_api.dart';
 import '../../data/cover_storage.dart';
+import '../../l10n/l10n.dart';
 import 'edit_book_page.dart';
 
 /// Rôle attribué à une ligne de texte détectée sur la couverture.
-enum _Role {
-  none('Ignorer'),
-  title('Titre'),
-  author('Auteur'),
-  publisher('Éditeur');
-
-  const _Role(this.label);
-  final String label;
-}
+enum _Role { none, title, author, publisher }
 
 class _Line {
   _Line(this.text, this.height, this.top);
@@ -55,7 +48,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
       if (!status.isGranted) {
         if (mounted) {
           setState(() =>
-              _error = 'Permission caméra refusée — impossible de photographier.');
+              _error = context.l10n.cameraPermissionDenied);
         }
         return;
       }
@@ -90,14 +83,14 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
         _guessRoles(lines);
         _processing = false;
         if (lines.isEmpty) {
-          _error = 'Aucun texte détecté. Réessaie avec une photo plus nette.';
+          _error = context.l10n.noTextDetectedRetry;
         }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _processing = false;
-        _error = 'Échec de la lecture : $e';
+        _error = context.l10n.ocrFailed('$e');
       });
     }
   }
@@ -190,7 +183,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scanner une couverture')),
+      appBar: AppBar(title: Text(context.l10n.scanCoverTitle)),
       body: _processing
           ? const Center(child: CircularProgressIndicator())
           : _imagePath == null
@@ -210,8 +203,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
                 size: 72, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 16),
             Text(
-              "Photographie la couverture : le titre, l'auteur et l'éditeur "
-              'seront extraits automatiquement.',
+              context.l10n.scanCoverIntro,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
@@ -219,13 +211,13 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
             FilledButton.icon(
               onPressed: () => _pick(ImageSource.camera),
               icon: const Icon(Icons.camera_alt),
-              label: const Text('Prendre une photo'),
+              label: Text(context.l10n.takePhoto),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => _pick(ImageSource.gallery),
               icon: const Icon(Icons.photo_library),
-              label: const Text('Choisir dans la galerie'),
+              label: Text(context.l10n.pickFromGallery),
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),
@@ -262,9 +254,15 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _summaryRow('Titre', _textFor(_Role.title)),
-                    _summaryRow('Auteur', _textFor(_Role.author)),
-                    _summaryRow('Éditeur', _textFor(_Role.publisher)),
+                    _summaryRow(_roleLabel(_Role.title), _textFor(_Role.title)),
+                    _summaryRow(
+                      _roleLabel(_Role.author),
+                      _textFor(_Role.author),
+                    ),
+                    _summaryRow(
+                      _roleLabel(_Role.publisher),
+                      _textFor(_Role.publisher),
+                    ),
                   ],
                 ),
               ),
@@ -275,8 +273,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Text(
-            'Attribue chaque ligne. Tu peux mettre plusieurs lignes dans le '
-            'même champ (titre ou auteur sur plusieurs lignes).',
+            context.l10n.assignLinesHint,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.outline,
                 ),
@@ -287,7 +284,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text(_error ?? 'Aucun texte détecté.',
+                    child: Text(_error ?? context.l10n.noTextDetected,
                         textAlign: TextAlign.center),
                   ),
                 )
@@ -308,7 +305,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
                           items: _Role.values
                               .map((r) => DropdownMenuItem(
                                     value: r,
-                                    child: Text(r.label),
+                                    child: Text(_roleLabel(r)),
                                   ))
                               .toList(),
                         ),
@@ -326,7 +323,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
                   child: OutlinedButton.icon(
                     onPressed: _reset,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Reprendre'),
+                    label: Text(context.l10n.retake),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -334,7 +331,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
                   child: FilledButton.icon(
                     onPressed: _textFor(_Role.title) != null ? _continue : null,
                     icon: const Icon(Icons.arrow_forward),
-                    label: const Text('Continuer'),
+                    label: Text(context.l10n.continueLabel),
                   ),
                 ),
               ],
@@ -345,6 +342,13 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
     );
   }
 
+  String _roleLabel(_Role role) => switch (role) {
+    _Role.none => context.l10n.roleIgnore,
+    _Role.title => context.l10n.fieldTitle,
+    _Role.author => context.l10n.fieldAuthor,
+    _Role.publisher => context.l10n.fieldPublisher,
+  };
+
   Widget _summaryRow(String label, String? value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -353,7 +357,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
           style: Theme.of(context).textTheme.bodyMedium,
           children: [
             TextSpan(
-                text: '$label : ',
+                text: context.l10n.fieldLabelPrefix(label),
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             TextSpan(
               text: value ?? '—',

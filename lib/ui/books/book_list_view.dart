@@ -1,3 +1,4 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
@@ -10,6 +11,7 @@ import '../../data/inventaire_api.dart';
 import '../../data/open_library_api.dart';
 import '../../data/repositories/books_repository.dart';
 import '../../data/text_normalize.dart';
+import '../../l10n/l10n.dart';
 import '../home/availability_provider.dart';
 import '../home/selection_provider.dart';
 import '../home/shelf_books_provider.dart';
@@ -22,7 +24,39 @@ import 'bookshelf_detail_page.dart';
 class BookListView extends ConsumerWidget {
   final String status;
 
-  const BookListView({super.key, required this.status});
+  /// Apparition en cascade des livres (premier affichage uniquement : après un
+  /// changement d'onglet ou d'affichage, le fondu enchaîné suffit).
+  final bool animateEntrance;
+
+  const BookListView({
+    super.key,
+    required this.status,
+    this.animateEntrance = true,
+  });
+
+  Widget _entrance({
+    required int index,
+    required bool grid,
+    required Widget child,
+  }) {
+    if (!animateEntrance) return child;
+    const duration = Duration(milliseconds: 375);
+    return grid
+        ? AnimationConfiguration.staggeredGrid(
+            position: index,
+            duration: duration,
+            columnCount: 3,
+            child: ScaleAnimation(child: FadeInAnimation(child: child)),
+          )
+        : AnimationConfiguration.staggeredList(
+            position: index,
+            duration: duration,
+            child: SlideAnimation(
+              verticalOffset: 50.0,
+              child: FadeInAnimation(child: child),
+            ),
+          );
+  }
 
   static bool _isLowRes(String url) =>
       url.contains('zoom=1') ||
@@ -134,7 +168,9 @@ class BookListView extends ConsumerWidget {
     final books = booksAsync.value;
     if (books == null) {
       if (booksAsync.hasError) {
-        return Center(child: Text('Erreur : ${booksAsync.error}'));
+        return Center(
+          child: Text(context.l10n.genericError('${booksAsync.error}')),
+        );
       }
       return const Center(child: CircularProgressIndicator());
     }
@@ -153,7 +189,7 @@ class BookListView extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Aucun livre ici',
+              context.l10n.emptyShelf,
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ],
@@ -162,8 +198,9 @@ class BookListView extends ConsumerWidget {
     }
     final viewOption = ref.watch(viewProvider);
 
+    final Widget content;
     if (viewOption == ViewOption.list) {
-      return RefreshIndicator(
+      content = RefreshIndicator(
         onRefresh: () => _refreshCovers(ref, books),
         child: AnimationLimiter(
           child: ListView.builder(
@@ -188,96 +225,91 @@ class BookListView extends ConsumerWidget {
                 }
               }
 
-              return AnimationConfiguration.staggeredList(
-                position: index,
-                duration: const Duration(milliseconds: 375),
-                child: SlideAnimation(
-                  verticalOffset: 50.0,
-                  child: FadeInAnimation(
-                    child: Card(
-                      margin: const EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 8,
-                      ),
-                      child: ListTile(
-                        selected: selectionState.selectedIds.contains(
-                          book.id,
-                        ),
-                        selectedTileColor: Theme.of(context)
-                            .colorScheme
-                            .primaryContainer
-                            .withValues(alpha: 0.2),
-                        leading: Stack(
-                          children: [
-                            Hero(
-                              tag: 'book_cover_${book.id}',
-                              child: SizedBox(
-                                width: 50,
-                                height: 75,
-                                child: BookCover(
-                                  book: book,
-                                  borderRadius: 4,
-                                  compact: true,
-                                ),
-                              ),
+              return _entrance(
+                index: index,
+                grid: false,
+                child: Card(
+                  margin: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 8,
+                  ),
+                  child: ListTile(
+                    selected: selectionState.selectedIds.contains(
+                      book.id,
+                    ),
+                    selectedTileColor: Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withValues(alpha: 0.2),
+                    leading: Stack(
+                      children: [
+                        Hero(
+                          tag: 'book_cover_${book.id}',
+                          child: SizedBox(
+                            width: 50,
+                            height: 75,
+                            child: BookCover(
+                              book: book,
+                              borderRadius: 4,
+                              compact: true,
                             ),
-                            if (selectionState.selectedIds.contains(
-                              book.id,
-                            ))
-                              Positioned.fill(
-                                child: Container(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .shadow
-                                      .withValues(alpha: 0.45),
-                                  child: Icon(
-                                    Icons.check_circle,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onPrimary,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        title: Text(
-                          book.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        subtitle: Text(
-                          book.authorText ?? 'Auteur inconnu',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: statusIcon != null
-                            ? Icon(statusIcon, color: statusColor)
-                            : null,
-                        onTap: () {
-                          if (selectionState.isSelecting) {
-                            ref
-                                .read(selectionProvider.notifier)
-                                .toggle(book.id);
-                          } else {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    BookDetailsPage(bookId: book.id, initialBook: book),
+                        if (selectionState.selectedIds.contains(
+                          book.id,
+                        ))
+                          Positioned.fill(
+                            child: Container(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .shadow
+                                  .withValues(alpha: 0.45),
+                              child: Icon(
+                                Icons.check_circle,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimary,
                               ),
-                            );
-                          }
-                        },
-                        onLongPress: () {
-                          ref
-                              .read(selectionProvider.notifier)
-                              .select(book.id);
-                        },
+                            ),
+                          ),
+                      ],
+                    ),
+                    title: Text(
+                      book.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                    subtitle: Text(
+                      book.authorText ?? context.l10n.unknownAuthor,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: statusIcon != null
+                        ? Icon(statusIcon, color: statusColor)
+                        : null,
+                    onTap: () {
+                      if (selectionState.isSelecting) {
+                        ref
+                            .read(selectionProvider.notifier)
+                            .toggle(book.id);
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                BookDetailsPage(bookId: book.id, initialBook: book),
+                          ),
+                        );
+                      }
+                    },
+                    onLongPress: () {
+                      ref
+                          .read(selectionProvider.notifier)
+                          .select(book.id);
+                    },
                   ),
                 ),
               );
@@ -286,7 +318,7 @@ class BookListView extends ConsumerWidget {
         ),
       );
     } else {
-      return RefreshIndicator(
+      content = RefreshIndicator(
         onRefresh: () => _refreshCovers(ref, books),
         child: AnimationLimiter(
           child: GridView.builder(
@@ -313,110 +345,105 @@ class BookListView extends ConsumerWidget {
                 }
               }
 
-              return AnimationConfiguration.staggeredGrid(
-                position: index,
-                duration: const Duration(milliseconds: 375),
-                columnCount: 3,
-                child: ScaleAnimation(
-                  child: FadeInAnimation(
-                    child: GestureDetector(
-                      onTap: () {
-                        if (selectionState.isSelecting) {
-                          ref
-                              .read(selectionProvider.notifier)
-                              .toggle(book.id);
-                        } else {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  BookDetailsPage(bookId: book.id, initialBook: book),
-                            ),
-                          );
-                        }
-                      },
-                      onLongPress: () {
-                        ref
-                            .read(selectionProvider.notifier)
-                            .select(book.id);
-                      },
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Stack(
-                              children: [
-                                Hero(
-                                  tag: 'book_cover_${book.id}',
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: borderColor != null
-                                          ? Border.all(
-                                              color: borderColor,
-                                              width: 3,
-                                            )
-                                          : null,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .shadow
-                                              .withValues(alpha: 0.2),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
+              return _entrance(
+                index: index,
+                grid: true,
+                child: GestureDetector(
+                  onTap: () {
+                    if (selectionState.isSelecting) {
+                      ref
+                          .read(selectionProvider.notifier)
+                          .toggle(book.id);
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              BookDetailsPage(bookId: book.id, initialBook: book),
+                        ),
+                      );
+                    }
+                  },
+                  onLongPress: () {
+                    ref
+                        .read(selectionProvider.notifier)
+                        .select(book.id);
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Hero(
+                              tag: 'book_cover_${book.id}',
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: borderColor != null
+                                      ? Border.all(
+                                          color: borderColor,
+                                          width: 3,
+                                        )
+                                      : null,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .shadow
+                                          .withValues(alpha: 0.2),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
-                                    clipBehavior: Clip.antiAlias,
-                                    child: BookCover(book: book),
+                                  ],
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: BookCover(book: book),
+                              ),
+                            ),
+                            if (selectionState.selectedIds.contains(
+                              book.id,
+                            ))
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .shadow
+                                        .withValues(alpha: 0.45),
+                                    borderRadius: BorderRadius.circular(
+                                      8,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.check_circle,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimary,
+                                    size: 40,
                                   ),
                                 ),
-                                if (selectionState.selectedIds.contains(
-                                  book.id,
-                                ))
-                                  Positioned.fill(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .shadow
-                                            .withValues(alpha: 0.45),
-                                        borderRadius: BorderRadius.circular(
-                                          8,
-                                        ),
-                                      ),
-                                      child: Icon(
-                                        Icons.check_circle,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimary,
-                                        size: 40,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          if (viewOption == ViewOption.gridWithDetails) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              book.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              book.authorText ?? '',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
+                              ),
                           ],
-                        ],
+                        ),
                       ),
-                    ),
+                      if (viewOption == ViewOption.gridWithDetails) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          book.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          book.authorText ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               );
@@ -425,5 +452,17 @@ class BookListView extends ConsumerWidget {
         ),
       );
     }
+
+    // Changement d'affichage (liste / grilles) : fondu enchaîné.
+    return PageTransitionSwitcher(
+      transitionBuilder: (child, animation, secondaryAnimation) =>
+          FadeThroughTransition(
+            animation: animation,
+            secondaryAnimation: secondaryAnimation,
+            fillColor: Colors.transparent,
+            child: child,
+          ),
+      child: KeyedSubtree(key: ValueKey(viewOption), child: content),
+    );
   }
 }

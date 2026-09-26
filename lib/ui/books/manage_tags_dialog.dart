@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
+import '../../l10n/l10n.dart';
 
 class ManageTagsDialog extends ConsumerStatefulWidget {
   final int bookId;
@@ -70,7 +71,7 @@ class _ManageTagsDialogState extends ConsumerState<ManageTagsDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la création du tag: $e')),
+          SnackBar(content: Text(context.l10n.tagCreateError('$e'))),
         );
       }
     }
@@ -90,8 +91,9 @@ class _ManageTagsDialogState extends ConsumerState<ManageTagsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
-      title: const Text('Gérer les tags'),
+      title: Text(l10n.manageTagsTitle),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -102,9 +104,9 @@ class _ManageTagsDialogState extends ConsumerState<ManageTagsDialog> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'Rechercher ou créer un tag',
-                      prefixIcon: Icon(Icons.search),
+                    decoration: InputDecoration(
+                      hintText: l10n.tagSearchOrCreateHint,
+                      prefixIcon: const Icon(Icons.search),
                     ),
                   ),
                 ),
@@ -117,14 +119,14 @@ class _ManageTagsDialogState extends ConsumerState<ManageTagsDialog> {
                   IconButton(
                     icon: const Icon(Icons.add),
                     onPressed: _createTag,
-                    tooltip: 'Créer le tag',
+                    tooltip: l10n.tagCreateTooltip,
                   ),
               ],
             ),
             const SizedBox(height: 16),
             Flexible(
               child: _allTags.isEmpty
-                  ? const Text('Aucun tag disponible.')
+                  ? Text(l10n.noTagsAvailable)
                   : ListView.builder(
                       shrinkWrap: true,
                       itemCount: _filteredTags.length,
@@ -145,7 +147,7 @@ class _ManageTagsDialogState extends ConsumerState<ManageTagsDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Fermer'),
+          child: Text(l10n.actionClose),
         ),
       ],
     );

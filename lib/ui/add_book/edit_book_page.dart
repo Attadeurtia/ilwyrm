@@ -13,6 +13,7 @@ import '../../data/repositories/books_repository.dart';
 import '../../data/book_search_api.dart';
 import '../../data/enums.dart';
 import '../../data/publishers.dart';
+import '../../l10n/l10n.dart';
 import '../books/book_cover.dart';
 import '../books/bookshelf_detail_page.dart';
 
@@ -241,7 +242,9 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            widget.existingBook != null ? 'Livre modifié !' : 'Livre ajouté !',
+            widget.existingBook != null
+                ? context.l10n.bookUpdated
+                : context.l10n.bookAdded,
           ),
         ),
       );
@@ -256,18 +259,16 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Déjà dans la bibliothèque'),
-        content: const Text(
-          'Ce livre semble déjà être dans ta bibliothèque.',
-        ),
+        title: Text(context.l10n.duplicateTitle),
+        content: Text(context.l10n.duplicateMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'add'),
-            child: const Text('Ajouter quand même'),
+            child: Text(context.l10n.addAnyway),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, 'open'),
-            child: const Text('Voir la fiche'),
+            child: Text(context.l10n.openBook),
           ),
         ],
       ),
@@ -295,7 +296,7 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Ajouter une couverture',
+          context.l10n.addCover,
           textAlign: TextAlign.center,
           style: TextStyle(color: Theme.of(context).colorScheme.outline),
         ),
@@ -350,8 +351,8 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
       appBar: AppBar(
         title: Text(
           widget.existingBook != null
-              ? 'Modifier le livre'
-              : 'Ajouter un livre',
+              ? context.l10n.editBookTitle
+              : context.l10n.addBookTitle,
         ),
         actions: [
           IconButton(icon: const Icon(Icons.check), onPressed: _saveBook),
@@ -366,13 +367,13 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
             const SizedBox(height: 24),
             TextFormField(
               controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Titre',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.fieldTitle,
+                border: const OutlineInputBorder(),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Veuillez entrer un titre';
+                  return context.l10n.fieldTitleRequired;
                 }
                 return null;
               },
@@ -380,9 +381,9 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _authorController,
-              decoration: const InputDecoration(
-                labelText: 'Auteur',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.fieldAuthor,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -404,9 +405,9 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
                 return TextFormField(
                   controller: controller,
                   focusNode: focusNode,
-                  decoration: const InputDecoration(
-                    labelText: 'Éditeur',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.fieldPublisher,
+                    border: const OutlineInputBorder(),
                   ),
                   onChanged: (value) => _publisherController.text = value,
                   onFieldSubmitted: (_) => onFieldSubmitted(),
@@ -417,30 +418,33 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
             TextFormField(
               controller: _yearController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Année de publication',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.fieldPublicationYear,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _pageCountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Nombre de pages',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.fieldPageCount,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<BookShelf>(
               // ignore: deprecated_member_use
               value: _status,
-              decoration: const InputDecoration(
-                labelText: 'Statut',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.fieldStatus,
+                border: const OutlineInputBorder(),
               ),
               items: BookShelf.values.map((shelf) {
-                return DropdownMenuItem(value: shelf, child: Text(shelf.label));
+                return DropdownMenuItem(
+                  value: shelf,
+                  child: Text(shelf.displayName(context.l10n)),
+                );
               }).toList(),
               onChanged: (value) {
                 if (value != null) _onStatusChanged(value);
@@ -448,11 +452,11 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
             ),
             if (_status.usesStartDate) const SizedBox(height: 16),
             if (_status.usesStartDate) ListTile(
-              title: const Text('Date de début'),
+              title: Text(context.l10n.fieldStartDate),
               subtitle: Text(
                 _startDate != null
-                    ? DateFormat.yMMMd('fr_FR').format(_startDate!)
-                    : 'Non défini',
+                    ? DateFormat.yMMMd(context.l10n.localeName).format(_startDate!)
+                    : context.l10n.notSet,
               ),
               trailing: const Icon(Icons.calendar_today),
               onTap: () => _selectDate(context, true),
@@ -470,11 +474,11 @@ class _EditBookPageState extends ConsumerState<EditBookPage> {
             ),
             if (_status.usesFinishDate) const SizedBox(height: 16),
             if (_status.usesFinishDate) ListTile(
-              title: const Text('Date de fin'),
+              title: Text(context.l10n.fieldFinishDate),
               subtitle: Text(
                 _finishDate != null
-                    ? DateFormat.yMMMd('fr_FR').format(_finishDate!)
-                    : 'Non défini',
+                    ? DateFormat.yMMMd(context.l10n.localeName).format(_finishDate!)
+                    : context.l10n.notSet,
               ),
               trailing: const Icon(Icons.calendar_today),
               onTap: () => _selectDate(context, false),

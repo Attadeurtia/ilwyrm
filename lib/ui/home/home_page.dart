@@ -1,6 +1,8 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import '../../l10n/l10n.dart';
 import '../add_book/scanner_page.dart';
 import '../add_book/search_book_page.dart';
 import 'filter_bar.dart';
@@ -31,6 +33,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
 
+  /// Apparition en cascade des livres : seulement au premier affichage. Ensuite
+  /// (changement d'onglet ou d'affichage), le fondu enchaîné suffit.
+  bool _animateEntrance = true;
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -39,164 +45,20 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final selectionState = ref.watch(selectionProvider);
 
     return Scaffold(
-      appBar: selectionState.isSelecting
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () {
-                  ref.read(selectionProvider.notifier).clear();
-                },
-              ),
-              title: Text(
-                '${selectionState.selectedIds.length} sélectionné(s)',
-              ),
-              actions: [
-                if (selectionState.selectedIds.length == 1)
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    tooltip: 'Modifier',
-                    onPressed: () async {
-                      final bookId = selectionState.selectedIds.first;
-                      final repository = ref.read(booksRepositoryProvider);
-                      final book = await repository.getBook(bookId);
-
-                      if (context.mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                EditBookPage(existingBook: book),
-                          ),
-                        );
-                        ref.read(selectionProvider.notifier).clear();
-                      }
-                    },
-                  ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'status':
-                        _showStatusDialog(context, selectionState.selectedIds);
-                        break;
-                      case 'tags':
-                        _showTagsDialog(context, selectionState.selectedIds);
-                        break;
-                      case 'favorite':
-                        _addToFavorites(context, selectionState.selectedIds);
-                        break;
-                      case 'delete':
-                        _showDeleteDialog(context, selectionState.selectedIds);
-                        break;
-                    }
-                  },
-                  itemBuilder: (BuildContext context) =>
-                      <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
-                          value: 'status',
-                          child: ListTile(
-                            leading: Icon(Icons.bookmark_border),
-                            title: Text('Changer le statut'),
-                          ),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'tags',
-                          child: ListTile(
-                            leading: Icon(Icons.label),
-                            title: Text('Ajouter des tags'),
-                          ),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'favorite',
-                          child: ListTile(
-                            leading: Icon(Icons.favorite),
-                            title: Text('Ajouter aux favoris'),
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        PopupMenuItem<String>(
-                          value: 'delete',
-                          child: ListTile(
-                            leading: Icon(
-                              Icons.delete,
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                            title: Text(
-                              'Supprimer',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                ),
-              ],
-            )
-          : AppBar(
-              centerTitle: true,
-              leading: IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () {
-                  showSearch(
-                    context: context,
-                    delegate: LocalSearchDelegate(ref),
-                  );
-                },
-              ),
-              title: const Text('Ilwyrm'),
-              actions: [
-                Consumer(
-                  builder: (context, ref, child) {
-                    final selectedTagIds = ref.watch(selectedTagProvider);
-                    final isExperimental =
-                        ref.watch(settingsProvider).libraryAvailabilityEnabled;
-
-                    // Vérification de disponibilité proposée quand au moins un
-                    // tag est sélectionné (fonctionnalité expérimentale).
-                    if (isExperimental && selectedTagIds.isNotEmpty) {
-                      return IconButton(
-                        icon: const Icon(Icons.travel_explore),
-                        tooltip: 'Vérifier la disponibilité',
-                        onPressed: () async {
-                          final repository = ref.read(booksRepositoryProvider);
-                          final books = await repository.getBooksByTags(
-                            selectedTagIds.toList(),
-                          );
-                          ref
-                              .read(availabilityProvider.notifier)
-                              .checkAvailabilityForBooks(books);
-                        },
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const SettingsPage(),
-                        ),
-                      );
-                    },
-                    child: CircleAvatar(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Text(
-                        'A',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+      // Passage en mode sélection : la barre contextuelle apparaît en fondu.
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: selectionState.isSelecting
+              ? _selectionAppBar(context, selectionState)
+              : _mainAppBar(context),
+        ),
+      ),
       body: Column(
         children: [
           const FilterBar(),
@@ -209,11 +71,11 @@ class _HomePageState extends ConsumerState<HomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 PopupMenuButton<SortOption>(
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.swap_vert),
-                      SizedBox(width: 8),
-                      Text('Trier'),
+                      const Icon(Icons.swap_vert),
+                      const SizedBox(width: 8),
+                      Text(l10n.sortLabel),
                     ],
                   ),
                   onSelected: (SortOption result) {
@@ -221,51 +83,71 @@ class _HomePageState extends ConsumerState<HomePage> {
                   },
                   itemBuilder: (BuildContext context) =>
                       <PopupMenuEntry<SortOption>>[
-                        const PopupMenuItem<SortOption>(
+                        PopupMenuItem<SortOption>(
                           value: SortOption.dateAdded,
                           child: ListTile(
-                            leading: Icon(Icons.calendar_today),
-                            title: Text('Date d\'ajout'),
+                            leading: const Icon(Icons.calendar_today),
+                            title: Text(l10n.sortDateAdded),
                           ),
                         ),
-                        const PopupMenuItem<SortOption>(
+                        PopupMenuItem<SortOption>(
                           value: SortOption.title,
                           child: ListTile(
-                            leading: Icon(Icons.sort_by_alpha),
-                            title: Text('Titre'),
+                            leading: const Icon(Icons.sort_by_alpha),
+                            title: Text(l10n.sortTitle),
                           ),
                         ),
-                        const PopupMenuItem<SortOption>(
+                        PopupMenuItem<SortOption>(
                           value: SortOption.author,
                           child: ListTile(
-                            leading: Icon(Icons.person),
-                            title: Text('Auteur'),
+                            leading: const Icon(Icons.person),
+                            title: Text(l10n.sortAuthor),
                           ),
                         ),
                       ],
                 ),
                 IconButton(
+                  tooltip: l10n.changeViewTooltip,
                   icon: Consumer(
                     builder: (context, ref, child) {
                       final view = ref.watch(viewProvider);
-                      switch (view) {
-                        case ViewOption.list:
-                          return const Icon(Icons.view_list);
-                        case ViewOption.grid:
-                          return const Icon(Icons.grid_view);
-                        case ViewOption.gridWithDetails:
-                          return const Icon(Icons.grid_on);
-                      }
+                      return AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (child, animation) =>
+                            ScaleTransition(scale: animation, child: child),
+                        child: Icon(
+                          switch (view) {
+                            ViewOption.list => Icons.view_list,
+                            ViewOption.grid => Icons.grid_view,
+                            ViewOption.gridWithDetails => Icons.grid_on,
+                          },
+                          key: ValueKey(view),
+                        ),
+                      );
                     },
                   ),
                   onPressed: () {
+                    setState(() => _animateEntrance = false);
                     ref.read(viewProvider.notifier).toggle();
                   },
                 ),
               ],
             ),
           ),
-          Expanded(child: _buildBookList(_selectedIndex)),
+          // Changement d'onglet : fondu enchaîné (motif Material de la barre de
+          // navigation).
+          Expanded(
+            child: PageTransitionSwitcher(
+              transitionBuilder: (child, animation, secondaryAnimation) =>
+                  FadeThroughTransition(
+                    animation: animation,
+                    secondaryAnimation: secondaryAnimation,
+                    fillColor: Colors.transparent,
+                    child: child,
+                  ),
+              child: _buildBookList(_selectedIndex),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -273,34 +155,35 @@ class _HomePageState extends ConsumerState<HomePage> {
         onDestinationSelected: (index) {
           setState(() {
             _selectedIndex = index;
+            _animateEntrance = false;
           });
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.book_outlined),
-            selectedIcon: Icon(Icons.book),
-            label: 'À lire',
+            icon: const Icon(Icons.book_outlined),
+            selectedIcon: const Icon(Icons.book),
+            label: l10n.tabToRead,
           ),
           NavigationDestination(
-            icon: Icon(Icons.auto_stories_outlined),
-            selectedIcon: Icon(Icons.auto_stories), // Or a filled variant
-            label: 'En cours',
+            icon: const Icon(Icons.auto_stories_outlined),
+            selectedIcon: const Icon(Icons.auto_stories),
+            label: l10n.tabReading,
           ),
           NavigationDestination(
-            icon: Icon(Icons.check),
-            selectedIcon: Icon(Icons.done_all),
-            label: 'Lus',
+            icon: const Icon(Icons.check),
+            selectedIcon: const Icon(Icons.done_all),
+            label: l10n.tabRead,
           ),
         ],
       ),
       floatingActionButton: SpeedDial(
         icon: Icons.add,
-        label: const Text('Ajouter'),
+        label: Text(l10n.addLabel),
         activeIcon: Icons.close,
         spacing: 3,
         childPadding: const EdgeInsets.all(5),
         spaceBetweenChildren: 4,
-        tooltip: 'Ajouter un livre',
+        tooltip: l10n.addBookTooltip,
         heroTag: 'speed-dial-hero-tag',
         elevation: 8.0,
         shape: const CircleBorder(),
@@ -308,7 +191,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           SpeedDialChild(
             child: const Icon(Icons.qr_code_scanner),
             backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            label: 'Scanner',
+            label: l10n.scanLabel,
             labelStyle: const TextStyle(fontSize: 18.0),
             onTap: () {
               Navigator.of(context).push(
@@ -319,7 +202,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           SpeedDialChild(
             child: const Icon(Icons.search),
             backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            label: 'Recherche',
+            label: l10n.searchLabel,
             labelStyle: const TextStyle(fontSize: 18.0),
             onTap: () {
               Navigator.of(context).push(
@@ -332,36 +215,193 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  AppBar _selectionAppBar(BuildContext context, SelectionState selectionState) {
+    final l10n = context.l10n;
+    return AppBar(
+      key: const ValueKey('selection-app-bar'),
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        tooltip: l10n.actionClose,
+        onPressed: () {
+          ref.read(selectionProvider.notifier).clear();
+        },
+      ),
+      title: Text(l10n.selectedCount(selectionState.selectedIds.length)),
+      actions: [
+        if (selectionState.selectedIds.length == 1)
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: l10n.actionEdit,
+            onPressed: () async {
+              final bookId = selectionState.selectedIds.first;
+              final repository = ref.read(booksRepositoryProvider);
+              final book = await repository.getBook(bookId);
+
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditBookPage(existingBook: book),
+                  ),
+                );
+                ref.read(selectionProvider.notifier).clear();
+              }
+            },
+          ),
+        PopupMenuButton<String>(
+          onSelected: (value) {
+            switch (value) {
+              case 'status':
+                _showStatusDialog(context, selectionState.selectedIds);
+                break;
+              case 'tags':
+                _showTagsDialog(context, selectionState.selectedIds);
+                break;
+              case 'favorite':
+                _addToFavorites(context, selectionState.selectedIds);
+                break;
+              case 'delete':
+                _showDeleteDialog(context, selectionState.selectedIds);
+                break;
+            }
+          },
+          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+            PopupMenuItem<String>(
+              value: 'status',
+              child: ListTile(
+                leading: const Icon(Icons.bookmark_border),
+                title: Text(l10n.actionChangeStatus),
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'tags',
+              child: ListTile(
+                leading: const Icon(Icons.label),
+                title: Text(l10n.actionAddTags),
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'favorite',
+              child: ListTile(
+                leading: const Icon(Icons.favorite),
+                title: Text(l10n.actionAddToFavorites),
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem<String>(
+              value: 'delete',
+              child: ListTile(
+                leading: Icon(
+                  Icons.delete,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  l10n.actionDelete,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  AppBar _mainAppBar(BuildContext context) {
+    final l10n = context.l10n;
+    return AppBar(
+      key: const ValueKey('main-app-bar'),
+      centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(Icons.search),
+        tooltip: MaterialLocalizations.of(context).searchFieldLabel,
+        onPressed: () {
+          showSearch(context: context, delegate: LocalSearchDelegate(ref));
+        },
+      ),
+      title: Text(l10n.appTitle),
+      actions: [
+        Consumer(
+          builder: (context, ref, child) {
+            final selectedTagIds = ref.watch(selectedTagProvider);
+            final isExperimental = ref
+                .watch(settingsProvider)
+                .libraryAvailabilityEnabled;
+
+            // Vérification de disponibilité proposée quand au moins un
+            // tag est sélectionné (fonctionnalité expérimentale).
+            if (isExperimental && selectedTagIds.isNotEmpty) {
+              return IconButton(
+                icon: const Icon(Icons.travel_explore),
+                tooltip: l10n.checkAvailability,
+                onPressed: () async {
+                  final repository = ref.read(booksRepositoryProvider);
+                  final books = await repository.getBooksByTags(
+                    selectedTagIds.toList(),
+                  );
+                  ref
+                      .read(availabilityProvider.notifier)
+                      .checkAvailabilityForBooks(books);
+                },
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 16.0),
+          child: Tooltip(
+            message: l10n.settingsTitle,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const SettingsPage()),
+                );
+              },
+              child: CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                child: Text(
+                  'A',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildBookList(int index) {
     // Une clé par onglet : chaque liste garde son propre état (défilement,
     // animations) au lieu de réutiliser celui de l'onglet précédent.
     const shelves = ['to_read', 'reading', 'read'];
     final shelf = shelves[index];
-    return BookListView(key: ValueKey(shelf), status: shelf);
+    return BookListView(
+      key: ValueKey(shelf),
+      status: shelf,
+      animateEntrance: _animateEntrance,
+    );
   }
 
   Future<void> _showStatusDialog(
     BuildContext context,
     Set<int> selectedIds,
   ) async {
-    final result = await showDialog<String>(
+    final l10n = context.l10n;
+    final result = await showDialog<BookShelf>(
       context: context,
       builder: (context) {
         return SimpleDialog(
-          title: const Text('Changer le statut'),
+          title: Text(l10n.actionChangeStatus),
           children: [
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'to_read'),
-              child: const Text('À lire'),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'reading'),
-              child: const Text('En cours'),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'read'),
-              child: const Text('Lu'),
-            ),
+            for (final shelf in BookShelf.values)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, shelf),
+                child: Text(shelf.displayName(l10n)),
+              ),
           ],
         );
       },
@@ -369,14 +409,13 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     if (result != null) {
       final repository = ref.read(booksRepositoryProvider);
-      final status = BookShelf.fromId(result);
-      await repository.updateStatusForBooks(selectedIds, status);
+      await repository.updateStatusForBooks(selectedIds, result);
 
       ref.read(selectionProvider.notifier).clear();
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${selectedIds.length} livre(s) mis à jour')),
+          SnackBar(content: Text(l10n.booksUpdated(selectedIds.length))),
         );
       }
     }
@@ -386,6 +425,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     BuildContext context,
     Set<int> selectedIds,
   ) async {
+    final l10n = context.l10n;
     final repository = ref.read(booksRepositoryProvider);
     await repository.setFavoriteForBooks(selectedIds, true);
 
@@ -393,9 +433,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${selectedIds.length} livre(s) ajoutés aux favoris'),
-        ),
+        SnackBar(content: Text(l10n.booksAddedToFavorites(selectedIds.length))),
       );
     }
   }
@@ -404,6 +442,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     BuildContext context,
     Set<int> selectedIds,
   ) async {
+    final l10n = context.l10n;
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => _ManageMultipleTagsDialog(selectedIds: selectedIds),
@@ -414,7 +453,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Tags ajoutés !')));
+        ).showSnackBar(SnackBar(content: Text(l10n.tagsAdded)));
       }
     }
   }
@@ -423,22 +462,21 @@ class _HomePageState extends ConsumerState<HomePage> {
     BuildContext context,
     Set<int> selectedIds,
   ) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Supprimer les livres ?'),
-          content: Text(
-            'Voulez-vous vraiment supprimer ${selectedIds.length} livre(s) ?',
-          ),
+          title: Text(l10n.deleteBooksTitle),
+          content: Text(l10n.deleteBooksMessage(selectedIds.length)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler'),
+              child: Text(l10n.actionCancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Supprimer'),
+              child: Text(l10n.actionDelete),
             ),
           ],
         );
@@ -453,7 +491,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${selectedIds.length} livre(s) supprimé(s)')),
+          SnackBar(content: Text(l10n.booksDeleted(selectedIds.length))),
         );
       }
     }
@@ -528,7 +566,7 @@ class _ManageMultipleTagsDialogState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la création du tag: $e')),
+          SnackBar(content: Text(context.l10n.tagCreateError('$e'))),
         );
       }
     }
@@ -536,8 +574,9 @@ class _ManageMultipleTagsDialogState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
-      title: const Text('Ajouter des tags'),
+      title: Text(l10n.actionAddTags),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -548,9 +587,9 @@ class _ManageMultipleTagsDialogState
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'Rechercher ou créer un tag',
-                      prefixIcon: Icon(Icons.search),
+                    decoration: InputDecoration(
+                      hintText: l10n.tagSearchOrCreateHint,
+                      prefixIcon: const Icon(Icons.search),
                     ),
                   ),
                 ),
@@ -563,14 +602,14 @@ class _ManageMultipleTagsDialogState
                   IconButton(
                     icon: const Icon(Icons.add),
                     onPressed: _createTag,
-                    tooltip: 'Créer le tag',
+                    tooltip: l10n.tagCreateTooltip,
                   ),
               ],
             ),
             const SizedBox(height: 16),
             Flexible(
               child: _allTags.isEmpty
-                  ? const Text('Aucun tag disponible.')
+                  ? Text(l10n.noTagsAvailable)
                   : ListView.builder(
                       shrinkWrap: true,
                       itemCount: _filteredTags.length,
@@ -604,7 +643,7 @@ class _ManageMultipleTagsDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Annuler'),
+          child: Text(l10n.actionCancel),
         ),
         TextButton(
           onPressed: () async {
@@ -612,7 +651,7 @@ class _ManageMultipleTagsDialogState
             await repository.addTagsToBooks(widget.selectedIds, _selectedTagIds);
             if (context.mounted) Navigator.pop(context, true);
           },
-          child: const Text('Ajouter'),
+          child: Text(l10n.actionAdd),
         ),
       ],
     );
