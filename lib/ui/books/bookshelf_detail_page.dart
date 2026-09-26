@@ -8,6 +8,7 @@ import '../../data/book_search_service.dart';
 import '../../data/database.dart';
 import '../../data/open_library_api.dart';
 import '../../data/repositories/books_repository.dart';
+import '../../data/text_normalize.dart';
 import '../add_book/edit_book_page.dart';
 import '../add_book/search_book_page.dart';
 import 'book_cover.dart';
@@ -50,357 +51,346 @@ class BookDetailsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(booksRepositoryProvider);
+    // Tant que le flux n'a rien émis (ou après suppression), on affiche le livre
+    // transmis par l'appelant : la couverture Hero est là dès la 1re frame.
+    final book = ref.watch(bookProvider(bookId)).value ?? initialBook;
+    if (book == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
-    return StreamBuilder<Book>(
-      initialData: initialBook,
-      stream: repository.watchBook(bookId),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final book = snapshot.data!;
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(book.title),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  book.isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: book.isFavorite
-                      ? Theme.of(context).colorScheme.error
-                      : null,
-                ),
-                onPressed: () {
-                  final repository = ref.read(booksRepositoryProvider);
-                  repository.toggleFavorite(book.id, !book.isFavorite);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(book.title),
+        actions: [
+          IconButton(
+            icon: Icon(
+              book.isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: book.isFavorite
+                  ? Theme.of(context).colorScheme.error
+                  : null,
+            ),
+            onPressed: () {
+              final repository = ref.read(booksRepositoryProvider);
+              repository.toggleFavorite(book.id, !book.isFavorite);
+            },
+          ),
+          PopupMenuButton(
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                child: const Text('Modifier'),
+                onTap: () {
+                  Future.delayed(const Duration(seconds: 0), () {
+                    if (context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              EditBookPage(existingBook: book),
+                        ),
+                      );
+                    }
+                  });
                 },
               ),
-              PopupMenuButton(
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    child: const Text('Modifier'),
-                    onTap: () {
-                      Future.delayed(const Duration(seconds: 0), () {
-                        if (context.mounted) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  EditBookPage(existingBook: book),
-                            ),
-                          );
-                        }
-                      });
-                    },
+              PopupMenuItem(
+                child: Text(
+                  'Supprimer',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
                   ),
-                  PopupMenuItem(
-                    child: Text(
-                      'Supprimer',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                    onTap: () {
-                      Future.delayed(Duration.zero, () async {
-                        if (!context.mounted) return;
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Supprimer le livre ?'),
-                            content: Text(
-                              'Voulez-vous vraiment supprimer « ${book.title} » ?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Annuler'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: Text(
-                                  'Supprimer',
-                                  style: TextStyle(
-                                    color: Theme.of(ctx).colorScheme.error,
-                                  ),
-                                ),
-                              ),
-                            ],
+                ),
+                onTap: () {
+                  Future.delayed(Duration.zero, () async {
+                    if (!context.mounted) return;
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Supprimer le livre ?'),
+                        content: Text(
+                          'Voulez-vous vraiment supprimer « ${book.title} » ?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Annuler'),
                           ),
-                        );
-                        if (confirmed == true && context.mounted) {
-                          await repository.deleteBook(book.id);
-                          if (context.mounted) Navigator.of(context).pop();
-                        }
-                      });
-                    },
-                  ),
-                ],
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: Text(
+                              'Supprimer',
+                              style: TextStyle(
+                                color: Theme.of(ctx).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true && context.mounted) {
+                      await repository.deleteBook(book.id);
+                      if (context.mounted) Navigator.of(context).pop();
+                    }
+                  });
+                },
               ),
             ],
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Section: Cover + Info
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Section: Cover + Info
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Couverture — tap pour l'agrandir et proposer des
-                    // couvertures alternatives. Même comportement qu'il y ait une
-                    // couverture ou non : sans couverture, ça permet d'en choisir
-                    // une (un indice « Couverture » l'indique).
-                    GestureDetector(
-                      onTap: () => _openFullscreenCover(context, book),
-                      child: Stack(
-                        children: [
-                          Hero(
-                            tag: 'book_cover_${book.id}',
-                            child: Container(
-                              width: 140,
-                              height: 210,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.shadow.withValues(alpha: 0.2),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
+                // Couverture — tap pour l'agrandir et proposer des
+                // couvertures alternatives. Même comportement qu'il y ait une
+                // couverture ou non : sans couverture, ça permet d'en choisir
+                // une (un indice « Couverture » l'indique).
+                GestureDetector(
+                  onTap: () => _openFullscreenCover(context, book),
+                  child: Stack(
+                    children: [
+                      Hero(
+                        tag: 'book_cover_${book.id}',
+                        child: Container(
+                          width: 140,
+                          height: 210,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.shadow.withValues(alpha: 0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
                               ),
-                              clipBehavior: Clip.antiAlias,
-                              child: BookCover(book: book, borderRadius: 16),
-                            ),
+                            ],
                           ),
-                          if (!_hasCover(book))
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.only(
-                                    bottomLeft: Radius.circular(16),
-                                    bottomRight: Radius.circular(16),
-                                  ),
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.add_photo_alternate_outlined,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'Couverture',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                          clipBehavior: Clip.antiAlias,
+                          child: BookCover(book: book, borderRadius: 16),
+                        ),
+                      ),
+                      if (!_hasCover(book))
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.only(
+                                bottomLeft: Radius.circular(16),
+                                bottomRight: Radius.circular(16),
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    // Info Column
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Author Chips
-                          if (book.authorText != null)
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: book.authorText!
-                                  .split(',')
-                                  .map((author) => author.trim())
-                                  .where((author) => author.isNotEmpty)
-                                  .map((author) {
-                                    return ActionChip(
-                                      label: Text(
-                                        author,
-                                        style: TextStyle(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onPrimary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      backgroundColor: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                      side: BorderSide.none,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                SearchBookPage(
-                                                  initialQuery: author,
-                                                  isAuthorSearch: true,
-                                                ),
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  })
-                                  .toList(),
-                            )
-                          else
-                            Text(
-                              'Auteur inconnu',
-                              style: Theme.of(context).textTheme.bodyLarge,
-                            ),
-                          const SizedBox(height: 16),
-
-                          // Pages
-                          const SizedBox(height: 16),
-
-                          // ISBN
-                          InkWell(
-                            onTap: () {
-                              final isbn = book.isbn13 ?? book.isbn10;
-                              if (isbn != null) {
-                                Clipboard.setData(ClipboardData(text: isbn));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'ISBN copié dans le presse-papier',
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  Icons.copy,
-                                  size: 15,
-                                  color: Theme.of(context).colorScheme.outline,
+                                  Icons.add_photo_alternate_outlined,
+                                  size: 16,
+                                  color: Colors.white,
                                 ),
-                                const SizedBox(width: 4),
+                                SizedBox(width: 4),
                                 Text(
-                                  'ISBN :',
-                                  style: Theme.of(context).textTheme.labelLarge
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.outline,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  'Couverture',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(book.isbn13 ?? book.isbn10 ?? 'Inconnu'),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          // Added Date
-                          Row(
-                            children: [
-                              Text(
-                                'Ajouté :',
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.outline,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(_formatDate(book.dateAdded)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-
-                // Summary
-                Text(
-                  'Résumé',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                _BookSummary(book: book),
-                const SizedBox(height: 32),
-                _BookMetadataTable(book: book),
-                const SizedBox(height: 32),
+                const SizedBox(width: 24),
+                // Info Column
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Author Chips
+                      if (book.authorText != null)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: book.authorText!
+                              .split(',')
+                              .map((author) => author.trim())
+                              .where((author) => author.isNotEmpty)
+                              .map((author) {
+                                return ActionChip(
+                                  label: Text(
+                                    author,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
+                                  side: BorderSide.none,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            SearchBookPage(
+                                              initialQuery: author,
+                                              isAuthorSearch: true,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              })
+                              .toList(),
+                        )
+                      else
+                        Text(
+                          'Auteur inconnu',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      const SizedBox(height: 16),
 
-                // Dates Cards
-                _ReadingStatusButton(book: book),
-                const SizedBox(height: 16),
-                _LibraryAvailabilityWidget(book: book),
-                const SizedBox(height: 32),
-
-                // Tags
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        'Tags',
-                        style: Theme.of(context).textTheme.titleLarge,
-                        overflow: TextOverflow.ellipsis,
+                      // ISBN
+                      InkWell(
+                        onTap: () {
+                          final isbn = book.isbn13 ?? book.isbn10;
+                          if (isbn != null) {
+                            Clipboard.setData(ClipboardData(text: isbn));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'ISBN copié dans le presse-papier',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.copy,
+                              size: 15,
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'ISBN :',
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(book.isbn13 ?? book.isbn10 ?? 'Inconnu'),
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) =>
-                              ManageTagsDialog(bookId: book.id),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _BookTagsList(bookId: book.id),
-                const SizedBox(height: 32),
-
-                // Other books by author
-                Text(
-                  'Autre livre de l\'auteur',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
-                _AuthorBooksList(
-                  author: book.authorText,
-                  currentBookId: book.id,
+                      const SizedBox(height: 16),
+                      // Added Date
+                      Row(
+                        children: [
+                          Text(
+                            'Ajouté :',
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.outline,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(_formatDate(book.dateAdded)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 32),
+
+            // Summary
+            Text(
+              'Résumé',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _BookSummary(book: book),
+            const SizedBox(height: 32),
+            _BookMetadataTable(book: book),
+            const SizedBox(height: 32),
+
+            // Dates Cards
+            _ReadingStatusButton(book: book),
+            const SizedBox(height: 16),
+            _LibraryAvailabilityWidget(book: book),
+            const SizedBox(height: 32),
+
+            // Tags
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    'Tags',
+                    style: Theme.of(context).textTheme.titleLarge,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) =>
+                          ManageTagsDialog(bookId: book.id),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _BookTagsList(bookId: book.id),
+            const SizedBox(height: 32),
+
+            // Other books by author
+            Text(
+              'Autres livres de l\'auteur',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            _AuthorBooksList(
+              author: book.authorText,
+              currentBookId: book.id,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -419,101 +409,72 @@ class _AuthorBooksList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (author == null) return const SizedBox();
 
-    final repository = ref.watch(booksRepositoryProvider);
+    final booksAsync = ref.watch(authorBooksProvider(author!));
+    if (!booksAsync.hasValue) return const SizedBox.shrink();
+    final books = booksAsync.value!.where((b) => b.id != currentBookId).toList();
+    if (books.isEmpty) {
+      return const Text('Aucun autre livre trouvé.');
+    }
 
-    return FutureBuilder<List<Book>>(
-      future: repository.getBooksByAuthor(author!),
-      builder: (context, snapshot) {
-        final books =
-            (snapshot.data ?? []).where((b) => b.id != currentBookId).toList();
-        if (books.isEmpty) {
-          return const Text('Aucun autre livre trouvé.');
-        }
-
-        return Column(
-          children: books
-              .map(
-                (book) => ListTile(
-                  leading: SizedBox(
-                    width: 50,
-                    height: 75,
-                    child: BookCover(book: book, compact: true),
+    return Column(
+      children: books
+          .map(
+            (book) => ListTile(
+              leading: SizedBox(
+                width: 50,
+                height: 75,
+                child: BookCover(book: book, compact: true),
+              ),
+              title: Text(book.title),
+              subtitle: Text(book.authorText ?? ''),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        BookDetailsPage(bookId: book.id, initialBook: book),
                   ),
-                  title: Text(book.title),
-                  subtitle: Text(book.authorText ?? ''),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            BookDetailsPage(bookId: book.id, initialBook: book),
-                      ),
-                    );
-                  },
-                ),
-              )
-              .toList(),
-        );
-      },
+                );
+              },
+            ),
+          )
+          .toList(),
     );
   }
 }
 
-class _BookTagsList extends ConsumerStatefulWidget {
+class _BookTagsList extends ConsumerWidget {
   final int bookId;
 
   const _BookTagsList({required this.bookId});
 
   @override
-  ConsumerState<_BookTagsList> createState() => _BookTagsListState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final allTags = ref.watch(allTagsProvider).value;
+    final bookTags = ref.watch(bookTagsProvider(bookId)).value;
+    if (allTags == null || bookTags == null) return const SizedBox.shrink();
 
-class _BookTagsListState extends ConsumerState<_BookTagsList> {
-  @override
-  Widget build(BuildContext context) {
-    final repository = ref.watch(booksRepositoryProvider);
+    if (allTags.isEmpty) {
+      return Text(
+        'Aucun tag disponible.',
+        style: TextStyle(color: Theme.of(context).colorScheme.outline),
+      );
+    }
 
-    return FutureBuilder<(List<Tag>, List<Tag>)>(
-      future: Future.wait([
-        repository.getAllTags(),
-        repository.getTagsForBook(widget.bookId),
-      ]).then((values) => (values[0], values[1])),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
-
-        final allTags = snapshot.data!.$1;
-        final bookTags = snapshot.data!.$2;
-        final bookTagIds = bookTags.map((t) => t.id).toSet();
-
-        if (allTags.isEmpty) {
-          return Text(
-            'Aucun tag disponible.',
-            style: TextStyle(color: Theme.of(context).colorScheme.outline),
-          );
-        }
-
-        return Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: allTags.map((tag) {
-            final isSelected = bookTagIds.contains(tag.id);
-            return FilterChip(
-              label: Text(tag.name),
-              selected: isSelected,
-              onSelected: (selected) async {
-                if (selected) {
-                  await repository.addTagToBook(widget.bookId, tag.id);
-                } else {
-                  await repository.removeTagFromBook(widget.bookId, tag.id);
-                }
-                setState(() {});
-              },
-            );
-          }).toList(),
+    final repository = ref.read(booksRepositoryProvider);
+    final bookTagIds = bookTags.map((t) => t.id).toSet();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: allTags.map((tag) {
+        return FilterChip(
+          label: Text(tag.name),
+          selected: bookTagIds.contains(tag.id),
+          onSelected: (selected) => selected
+              ? repository.addTagToBook(bookId, tag.id)
+              : repository.removeTagFromBook(bookId, tag.id),
         );
-      },
+      }).toList(),
     );
   }
 }
@@ -547,7 +508,11 @@ class _ReadingStatusButton extends ConsumerWidget {
       final days = book.startDate != null
           ? DateTime.now().difference(book.startDate!).inDays
           : 0;
-      final daysText = days == 0 ? 'aujourd\'hui' : '$days jours';
+      final daysText = switch (days) {
+        <= 0 => 'aujourd\'hui',
+        1 => 'hier',
+        _ => 'il y a $days jours',
+      };
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -572,10 +537,10 @@ class _ReadingStatusButton extends ConsumerWidget {
         ],
       );
     } else if (status == BookShelf.read) {
-      String durationText = 'Unknown duration';
+      String durationText = 'Durée inconnue';
       if (book.startDate != null && book.finishDate != null) {
         final days = book.finishDate!.difference(book.startDate!).inDays;
-        durationText = days == 0 ? '1 jour' : '$days jours';
+        durationText = days <= 1 ? '1 jour' : '$days jours';
       }
 
       return Container(
@@ -631,9 +596,7 @@ class _LibraryAvailabilityWidgetState
         widget.book,
       ]);
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) {
         setState(() {
@@ -823,6 +786,10 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
   final BookSearchService _service = BookSearchService();
   List<_CoverOption> _alternatives = const [];
   bool _loading = true;
+
+  /// Couverture choisie : vignette de la liste (pour la surligner et patienter)
+  /// et URL enregistrée (version large pour OpenLibrary).
+  _CoverOption? _selected;
   String? _selectedUrl;
 
   @override
@@ -880,7 +847,7 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
           final url = b.coverUrl;
           if (url != null &&
               url.isNotEmpty &&
-              _titleMatches(book.title, b.title) &&
+              titlesMatch(book.title, b.title) &&
               seen.add(url)) {
             options.add(_CoverOption(url: url, source: entry.key));
             count++;
@@ -898,40 +865,17 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
     }
   }
 
-  /// Normalise un titre pour comparaison (minuscules, sans accents ni ponctuation).
-  String _normTitle(String s) {
-    var out = s.toLowerCase();
-    const accents = {
-      'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a', 'ã': 'a', 'å': 'a', 'ç': 'c',
-      'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ì': 'i', 'î': 'i', 'ï': 'i',
-      'í': 'i', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'ó': 'o', 'õ': 'o', 'ù': 'u',
-      'û': 'u', 'ü': 'u', 'ú': 'u', 'ñ': 'n', 'œ': 'oe', 'æ': 'ae',
-    };
-    accents.forEach((k, v) => out = out.replaceAll(k, v));
-    return out
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-  }
-
-  /// Le résultat correspond-il au livre ? Égalité de titre, ou (titres à
-  /// plusieurs mots) le résultat commence par le titre du livre suivi d'un
-  /// sous-titre — pour ne pas confondre « Dune » et « Dune Messiah ».
-  bool _titleMatches(String bookTitle, String resultTitle) {
-    final b = _normTitle(bookTitle);
-    final r = _normTitle(resultTitle);
-    if (b.isEmpty || r.isEmpty) return false;
-    if (b == r) return true;
-    return b.contains(' ') && r.startsWith('$b ');
-  }
-
-  Future<void> _select(String url) async {
+  Future<void> _select(_CoverOption option) async {
+    final url = option.url;
     // Pour une couverture OpenLibrary, on enregistre la version large (-L) plutôt
     // que la vignette (-M) affichée dans la liste.
     final persisted = url.contains('covers.openlibrary.org')
         ? url.replaceAll('-M.jpg', '-L.jpg')
         : url;
-    setState(() => _selectedUrl = persisted);
+    setState(() {
+      _selected = option;
+      _selectedUrl = persisted;
+    });
     await ref.read(booksRepositoryProvider).updateCover(widget.book.id, persisted);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -971,11 +915,19 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
                           ? CachedNetworkImage(
                               imageUrl: _selectedUrl!,
                               fit: BoxFit.contain,
+                              fadeInDuration: Duration.zero,
+                              // La vignette (déjà chargée) patiente pendant le
+                              // téléchargement de la version large.
+                              placeholder: (context, _) => CachedNetworkImage(
+                                imageUrl: _selected!.url,
+                                fit: BoxFit.contain,
+                              ),
                             )
                           : BookCover(
                               book: widget.book,
                               fit: BoxFit.contain,
                               borderRadius: 0,
+                              fullResolution: true,
                             ),
                     ),
                   ),
@@ -1023,9 +975,9 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
               separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, i) {
                 final opt = _alternatives[i];
-                final selected = _selectedUrl == opt.url;
+                final selected = identical(_selected, opt);
                 return GestureDetector(
-                  onTap: () => _select(opt.url),
+                  onTap: () => _select(opt),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1095,6 +1047,10 @@ class _BookSummary extends ConsumerStatefulWidget {
 }
 
 class _BookSummaryState extends ConsumerState<_BookSummary> {
+  /// Livres pour lesquels aucune source n'a de résumé (durant cette session) :
+  /// on ne relance pas 4 recherches réseau à chaque ouverture de la fiche.
+  static final Set<int> _notFound = {};
+
   String? _summary;
   bool _loading = false;
 
@@ -1104,7 +1060,7 @@ class _BookSummaryState extends ConsumerState<_BookSummary> {
     final stored = widget.book.description?.trim();
     if (stored != null && stored.isNotEmpty) {
       _summary = _cleanHtml(stored);
-    } else {
+    } else if (!_notFound.contains(widget.book.id)) {
       _load();
     }
   }
@@ -1112,44 +1068,60 @@ class _BookSummaryState extends ConsumerState<_BookSummary> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final book = widget.book;
-    final isbn13 = book.isbn13;
-    final isbn10 = book.isbn10;
-    final query = (isbn13 != null && isbn13.isNotEmpty)
-        ? isbn13
-        : (isbn10 != null && isbn10.isNotEmpty)
-            ? isbn10
-            : [book.title, book.authorText ?? '']
-                .where((s) => s.trim().isNotEmpty)
-                .join(' ');
+    final isbn = [book.isbn13, book.isbn10]
+        .whereType<String>()
+        .firstWhere((s) => s.trim().isNotEmpty, orElse: () => '');
+    final titleQuery = [book.title, book.authorText ?? '']
+        .where((s) => s.trim().isNotEmpty)
+        .join(' ');
+
+    // D'abord par ISBN (l'édition exacte), puis par titre + auteur (une autre
+    // édition du même livre), en ne gardant qu'un résultat au titre concordant.
     String? desc;
-    if (query.trim().isNotEmpty) {
-      try {
-        final agg = await BookSearchService().search(query);
-        for (final b in agg.merged) {
-          final d = b.description?.trim();
-          if (d != null && d.isNotEmpty) {
-            desc = _cleanHtml(d);
-            break;
-          }
-        }
-      } catch (_) {}
-    }
+    try {
+      final service = BookSearchService();
+      if (isbn.isNotEmpty) desc = _firstDescription(await service.search(isbn));
+      if (desc == null && titleQuery.isNotEmpty) {
+        desc = _firstDescription(
+          await service.search(titleQuery),
+          matchingTitle: book.title,
+        );
+      }
+    } catch (_) {}
+
+    if (desc == null) _notFound.add(book.id);
     if (!mounted) return;
     setState(() {
       _summary = desc;
       _loading = false;
     });
-    if (desc != null && desc.isNotEmpty) {
+    if (desc != null) {
       // Mise en cache pour les prochaines ouvertures (et l'hors-ligne).
-      ref.read(booksRepositoryProvider).updateDescription(widget.book.id, desc);
+      ref.read(booksRepositoryProvider).updateDescription(book.id, desc);
     }
   }
 
+  String? _firstDescription(AggregatedResults agg, {String? matchingTitle}) {
+    for (final b in agg.merged) {
+      if (matchingTitle != null && !titlesMatch(matchingTitle, b.title)) {
+        continue;
+      }
+      final d = b.description?.trim();
+      if (d != null && d.isNotEmpty) return _cleanHtml(d);
+    }
+    return null;
+  }
+
+  static final RegExp _br = RegExp(r'<br\s*/?>', caseSensitive: false);
+  static final RegExp _pEnd = RegExp(r'</p>', caseSensitive: false);
+  static final RegExp _tag = RegExp(r'<[^>]+>');
+  static final RegExp _blankLines = RegExp(r'\n{3,}');
+
   /// Nettoie le HTML léger que renvoient certaines sources (Google Books).
   String _cleanHtml(String s) {
-    var out = s.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
-    out = out.replaceAll(RegExp(r'</p>', caseSensitive: false), '\n\n');
-    out = out.replaceAll(RegExp(r'<[^>]+>'), '');
+    var out = s.replaceAll(_br, '\n');
+    out = out.replaceAll(_pEnd, '\n\n');
+    out = out.replaceAll(_tag, '');
     out = out
         .replaceAll('&amp;', '&')
         .replaceAll('&quot;', '"')
@@ -1158,7 +1130,7 @@ class _BookSummaryState extends ConsumerState<_BookSummary> {
         .replaceAll('&lt;', '<')
         .replaceAll('&gt;', '>')
         .replaceAll('&nbsp;', ' ');
-    return out.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+    return out.replaceAll(_blankLines, '\n\n').trim();
   }
 
   @override
