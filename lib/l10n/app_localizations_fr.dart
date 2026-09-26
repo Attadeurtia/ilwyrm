@@ -827,4 +827,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get statsChartHint => 'Touchez une barre pour voir sa valeur.';
+
+  @override
+  String get refreshCoversTooltip => 'Rafraîchir les couvertures (F5)';
 }

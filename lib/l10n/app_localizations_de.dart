@@ -823,4 +823,7 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get statsChartHint =>
       'Tippe auf einen Balken, um seinen Wert zu sehen.';
+
+  @override
+  String get refreshCoversTooltip => 'Cover aktualisieren (F5)';
 }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,7 @@ import '../home/selection_provider.dart';
 import '../home/shelf_books_provider.dart';
 import '../home/tag_filter_provider.dart';
 import '../home/view_provider.dart';
+import '../adaptive.dart';
 import '../theme_extensions.dart';
 import 'book_cover.dart';
 import 'bookshelf_detail_page.dart';
@@ -34,126 +37,36 @@ class BookListView extends ConsumerWidget {
     this.animateEntrance = true,
   });
 
+  /// Enveloppe d'un livre : clic droit (sélection, comme l'appui long), curseur
+  /// « main » sur les couvertures, et apparition en cascade.
   Widget _entrance({
     required int index,
     required bool grid,
+    required VoidCallback onSecondaryTap,
+    int columns = 3,
     required Widget child,
   }) {
-    if (!animateEntrance) return child;
+    Widget item = GestureDetector(onSecondaryTap: onSecondaryTap, child: child);
+    if (grid) {
+      item = MouseRegion(cursor: SystemMouseCursors.click, child: item);
+    }
+    if (!animateEntrance) return item;
     const duration = Duration(milliseconds: 375);
     return grid
         ? AnimationConfiguration.staggeredGrid(
             position: index,
             duration: duration,
-            columnCount: 3,
-            child: ScaleAnimation(child: FadeInAnimation(child: child)),
+            columnCount: columns,
+            child: ScaleAnimation(child: FadeInAnimation(child: item)),
           )
         : AnimationConfiguration.staggeredList(
             position: index,
             duration: duration,
             child: SlideAnimation(
               verticalOffset: 50.0,
-              child: FadeInAnimation(child: child),
+              child: FadeInAnimation(child: item),
             ),
           );
-  }
-
-  static bool _isLowRes(String url) =>
-      url.contains('zoom=1') ||
-      url.contains('zoom=5') ||
-      url.contains('-S.jpg') ||
-      url.contains('-M.jpg');
-
-  static bool _isHighRes(String url) =>
-      url.contains('zoom=3') ||
-      url.contains('-L.jpg') ||
-      url.contains('inventaire.io');
-
-  /// Seuls les livres sans couverture, ou avec une simple vignette, méritent
-  /// une recherche (une photo locale ou une couverture large est conservée).
-  static bool _needsBetterCover(Book book) {
-    if (book.coverPath != null && book.coverPath!.isNotEmpty) return false;
-    final url = book.coverUrl;
-    return url == null || url.isEmpty || _isLowRes(url);
-  }
-
-  /// Tirer pour rafraîchir : cherche une meilleure couverture pour les livres
-  /// qui en ont besoin, quelques-uns à la fois (bien plus rapide qu'un par un,
-  /// sans saturer les API). Les autres ne déclenchent aucune requête.
-  Future<void> _refreshCovers(WidgetRef ref, List<Book> books) async {
-    final apis = <BookSearchApi>[
-      OpenLibraryApi(),
-      GoogleBooksApi(),
-      InventaireApi(),
-    ];
-    final repository = ref.read(booksRepositoryProvider);
-    final toRefresh = books.where(_needsBetterCover).toList();
-
-    const batchSize = 4;
-    for (var i = 0; i < toRefresh.length; i += batchSize) {
-      await Future.wait(
-        toRefresh
-            .skip(i)
-            .take(batchSize)
-            .map((book) => _refreshCover(book, apis, repository)),
-      );
-    }
-  }
-
-  Future<void> _refreshCover(
-    Book book,
-    List<BookSearchApi> apis,
-    BooksRepository repository,
-  ) async {
-    final isbn = [book.isbn13, book.isbn10]
-        .whereType<String>()
-        .firstWhere((s) => s.isNotEmpty, orElse: () => '');
-    // Sans ISBN : titre + auteur, et seuls les résultats au titre concordant
-    // comptent (pas la couverture d'un autre livre).
-    final query = isbn.isNotEmpty
-        ? isbn
-        : [book.title, book.authorText ?? '']
-              .where((s) => s.trim().isNotEmpty)
-              .join(' ');
-    if (query.isEmpty) return;
-
-    for (final api in apis) {
-      try {
-        final results = await api
-            .searchBooks(query)
-            .timeout(const Duration(seconds: 8));
-        final match = results
-            .where((r) => isbn.isNotEmpty || titlesMatch(book.title, r.title))
-            .map((r) => r.coverUrl)
-            .firstWhere((url) => url != null && url.isNotEmpty, orElse: () => null);
-        if (match == null) continue;
-
-        var newCoverUrl = match;
-        if (newCoverUrl.contains('googleapis.com')) {
-          newCoverUrl = newCoverUrl
-              .replaceAll('&edge=curl', '')
-              .replaceAll('zoom=1', 'zoom=3')
-              .replaceAll('zoom=5', 'zoom=3');
-        } else if (newCoverUrl.contains('covers.openlibrary.org')) {
-          newCoverUrl = newCoverUrl
-              .replaceAll('-S.jpg', '-L.jpg')
-              .replaceAll('-M.jpg', '-L.jpg');
-        }
-
-        final current = book.coverUrl;
-        final isBetter =
-            current == null || current.isEmpty || _isHighRes(newCoverUrl);
-        if (isBetter && newCoverUrl != current) {
-          await repository.updateBookData(
-            book.id,
-            BooksCompanion(coverUrl: Value(newCoverUrl)),
-          );
-          return;
-        }
-      } catch (_) {
-        // Source indisponible : on essaie la suivante.
-      }
-    }
   }
 
   @override
@@ -198,14 +111,14 @@ class BookListView extends ConsumerWidget {
     }
     final viewOption = ref.watch(viewProvider);
 
-    final Widget content;
+    Widget buildContent(double width) {
     if (viewOption == ViewOption.list) {
-      content = RefreshIndicator(
-        onRefresh: () => _refreshCovers(ref, books),
+      return RefreshIndicator(
+        onRefresh: () => refreshBookCovers(ref, books),
         child: AnimationLimiter(
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(8),
+            padding: centeredPadding(width, minimum: 8, top: 8, bottom: 8),
             itemCount: books.length,
             itemBuilder: (context, index) {
               final book = books[index];
@@ -228,6 +141,8 @@ class BookListView extends ConsumerWidget {
               return _entrance(
                 index: index,
                 grid: false,
+                onSecondaryTap: () =>
+                    ref.read(selectionProvider.notifier).toggle(book.id),
                 child: Card(
                   margin: const EdgeInsets.symmetric(
                     vertical: 4,
@@ -318,14 +233,17 @@ class BookListView extends ConsumerWidget {
         ),
       );
     } else {
-      content = RefreshIndicator(
-        onRefresh: () => _refreshCovers(ref, books),
+      // Colonnes de ~180 px (au moins 3) : plus de couvertures sur une
+      // fenêtre d'ordinateur, sans les agrandir démesurément.
+      final columns = math.max(3, (width / 180).floor());
+      return RefreshIndicator(
+        onRefresh: () => refreshBookCovers(ref, books),
         child: AnimationLimiter(
           child: GridView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(8),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+              crossAxisCount: columns,
               childAspectRatio: viewOption == ViewOption.grid ? 0.65 : 0.55,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
@@ -348,6 +266,9 @@ class BookListView extends ConsumerWidget {
               return _entrance(
                 index: index,
                 grid: true,
+                columns: columns,
+                onSecondaryTap: () =>
+                    ref.read(selectionProvider.notifier).toggle(book.id),
                 child: GestureDetector(
                   onTap: () {
                     if (selectionState.isSelecting) {
@@ -453,6 +374,12 @@ class BookListView extends ConsumerWidget {
       );
     }
 
+    }
+
+    final content = LayoutBuilder(
+      builder: (context, constraints) => buildContent(constraints.maxWidth),
+    );
+
     // Changement d'affichage (liste / grilles) : fondu enchaîné.
     return PageTransitionSwitcher(
       transitionBuilder: (child, animation, secondaryAnimation) =>
@@ -464,5 +391,104 @@ class BookListView extends ConsumerWidget {
           ),
       child: KeyedSubtree(key: ValueKey(viewOption), child: content),
     );
+  }
+}
+
+bool _isLowRes(String url) =>
+    url.contains('zoom=1') ||
+    url.contains('zoom=5') ||
+    url.contains('-S.jpg') ||
+    url.contains('-M.jpg');
+
+bool _isHighRes(String url) =>
+    url.contains('zoom=3') ||
+    url.contains('-L.jpg') ||
+    url.contains('inventaire.io');
+
+/// Seuls les livres sans couverture, ou avec une simple vignette, méritent
+/// une recherche (une photo locale ou une couverture large est conservée).
+bool _needsBetterCover(Book book) {
+  if (book.coverPath != null && book.coverPath!.isNotEmpty) return false;
+  final url = book.coverUrl;
+  return url == null || url.isEmpty || _isLowRes(url);
+}
+
+/// Cherche une meilleure couverture pour les livres qui en ont besoin
+/// (« tirer pour rafraîchir », ou bouton sur ordinateur), quelques-uns à la
+/// fois (bien plus rapide qu'un par un, sans saturer les API). Les autres ne
+/// déclenchent aucune requête.
+Future<void> refreshBookCovers(WidgetRef ref, List<Book> books) async {
+  final apis = <BookSearchApi>[
+    OpenLibraryApi(),
+    GoogleBooksApi(),
+    InventaireApi(),
+  ];
+  final repository = ref.read(booksRepositoryProvider);
+  final toRefresh = books.where(_needsBetterCover).toList();
+
+  const batchSize = 4;
+  for (var i = 0; i < toRefresh.length; i += batchSize) {
+    await Future.wait(
+      toRefresh
+          .skip(i)
+          .take(batchSize)
+          .map((book) => _refreshCover(book, apis, repository)),
+    );
+  }
+}
+
+Future<void> _refreshCover(
+  Book book,
+  List<BookSearchApi> apis,
+  BooksRepository repository,
+) async {
+  final isbn = [book.isbn13, book.isbn10]
+      .whereType<String>()
+      .firstWhere((s) => s.isNotEmpty, orElse: () => '');
+  // Sans ISBN : titre + auteur, et seuls les résultats au titre concordant
+  // comptent (pas la couverture d'un autre livre).
+  final query = isbn.isNotEmpty
+      ? isbn
+      : [book.title, book.authorText ?? '']
+            .where((s) => s.trim().isNotEmpty)
+            .join(' ');
+  if (query.isEmpty) return;
+
+  for (final api in apis) {
+    try {
+      final results = await api
+          .searchBooks(query)
+          .timeout(const Duration(seconds: 8));
+      final match = results
+          .where((r) => isbn.isNotEmpty || titlesMatch(book.title, r.title))
+          .map((r) => r.coverUrl)
+          .firstWhere((url) => url != null && url.isNotEmpty, orElse: () => null);
+      if (match == null) continue;
+
+      var newCoverUrl = match;
+      if (newCoverUrl.contains('googleapis.com')) {
+        newCoverUrl = newCoverUrl
+            .replaceAll('&edge=curl', '')
+            .replaceAll('zoom=1', 'zoom=3')
+            .replaceAll('zoom=5', 'zoom=3');
+      } else if (newCoverUrl.contains('covers.openlibrary.org')) {
+        newCoverUrl = newCoverUrl
+            .replaceAll('-S.jpg', '-L.jpg')
+            .replaceAll('-M.jpg', '-L.jpg');
+      }
+
+      final current = book.coverUrl;
+      final isBetter =
+          current == null || current.isEmpty || _isHighRes(newCoverUrl);
+      if (isBetter && newCoverUrl != current) {
+        await repository.updateBookData(
+          book.id,
+          BooksCompanion(coverUrl: Value(newCoverUrl)),
+        );
+        return;
+      }
+    } catch (_) {
+      // Source indisponible : on essaie la suivante.
+    }
   }
 }

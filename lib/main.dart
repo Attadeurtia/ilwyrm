@@ -11,6 +11,7 @@ import 'data/database.dart';
 //import 'data/seed_data.dart';
 import 'data/settings_repository.dart';
 import 'l10n/l10n.dart';
+import 'ui/adaptive.dart';
 import 'ui/home/home_page.dart';
 import 'ui/theme_extensions.dart';
 
@@ -51,6 +52,10 @@ Future<void> _loadEnv() async {
     dotenv.loadFromString(isOptional: true);
   }
 }
+
+/// Navigateur de l'app : permet de revenir en arrière depuis un raccourci
+/// clavier ou le bouton « précédent » de la souris (ordinateur).
+final _navigatorKey = GlobalKey<NavigatorState>();
 
 class IlwyrmApp extends ConsumerWidget {
   const IlwyrmApp({super.key});
@@ -100,16 +105,23 @@ class IlwyrmApp extends ConsumerWidget {
           );
         }
 
-        return MaterialApp(
-          onGenerateTitle: (context) => context.l10n.appTitle,
-          debugShowCheckedModeBanner: false,
-          themeMode: ThemeMode.system,
-          theme: _theme(lightColorScheme, SemanticColors.light),
-          darkTheme: _theme(darkColorScheme, SemanticColors.dark),
-          locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const HomePage(),
+        // Échap : écran précédent (voir adaptive.dart).
+        return escapeGoesBack(
+          _navigatorKey,
+          MaterialApp(
+            navigatorKey: _navigatorKey,
+            onGenerateTitle: (context) => context.l10n.appTitle,
+            debugShowCheckedModeBanner: false,
+            // Bouton « précédent » de la souris : écran précédent.
+            builder: (context, child) => mouseBackButton(_navigatorKey, child),
+            themeMode: ThemeMode.system,
+            theme: _theme(lightColorScheme, SemanticColors.light),
+            darkTheme: _theme(darkColorScheme, SemanticColors.dark),
+            locale: locale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const HomePage(),
+          ),
         );
       },
     );

@@ -2,14 +2,14 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
+import 'app_directories.dart';
 import 'database.dart';
 
 /// Dossier persistant des couvertures locales (photos prises ou choisies).
 Future<Directory> _coversDir() async {
-  final docs = await getApplicationDocumentsDirectory();
-  return Directory(p.join(docs.path, 'covers')).create(recursive: true);
+  final base = await appDataDirectory();
+  return Directory(p.join(base.path, 'covers')).create(recursive: true);
 }
 
 /// Copie une image (fichier temporaire d'image_picker, cache de file_picker…)

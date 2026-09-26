@@ -1343,6 +1343,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Touchez une barre pour voir sa valeur.'**
   String get statsChartHint;
+
+  /// No description provided for @refreshCoversTooltip.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rafraîchir les couvertures (F5)'**
+  String get refreshCoversTooltip;
 }
 
 class _AppLocalizationsDelegate

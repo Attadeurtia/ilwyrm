@@ -819,4 +819,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get statsChartHint => 'Tap a bar to see its value.';
+
+  @override
+  String get refreshCoversTooltip => 'Refresh covers (F5)';
 }

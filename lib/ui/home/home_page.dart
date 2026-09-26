@@ -1,8 +1,11 @@
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import '../../l10n/l10n.dart';
+import '../adaptive.dart';
+import 'shelf_books_provider.dart';
 import '../add_book/scanner_page.dart';
 import '../add_book/search_book_page.dart';
 import 'filter_bar.dart';
@@ -43,175 +46,306 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
+  static const _shelves = ['to_read', 'reading', 'read'];
+
+  /// Rafraîchissement des couvertures en cours (bouton sur ordinateur).
+  bool _refreshing = false;
+
+  void _openSearch() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (context) => const SearchBookPage()));
+
+  void _openScanner() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (context) => const ScannerPage()));
+
+  void _openLocalSearch() =>
+      showSearch(context: context, delegate: LocalSearchDelegate(ref));
+
+  void _selectTab(int index) => setState(() {
+    _selectedIndex = index;
+    _animateEntrance = false;
+  });
+
+  /// Sur ordinateur, « tirer pour rafraîchir » n'existe pas à la souris : un
+  /// bouton (et F5) cherche les couvertures manquantes de l'onglet affiché.
+  Future<void> _refreshCovers() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      final books =
+          ref.read(shelfBooksProvider(_shelves[_selectedIndex])).value ??
+          const <Book>[];
+      await refreshBookCovers(ref, books);
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final selectionState = ref.watch(selectionProvider);
+    // Fenêtre large (ordinateur, tablette, paysage) : rail de navigation à
+    // gauche au lieu de la barre du bas.
+    final wide =
+        MediaQuery.sizeOf(context).width >= kNavigationRailBreakpoint;
+    final destinations = [
+      (icon: Icons.book_outlined, selected: Icons.book, label: l10n.tabToRead),
+      (
+        icon: Icons.auto_stories_outlined,
+        selected: Icons.auto_stories,
+        label: l10n.tabReading,
+      ),
+      (icon: Icons.check, selected: Icons.done_all, label: l10n.tabRead),
+    ];
 
-    return Scaffold(
-      // Passage en mode sélection : la barre contextuelle apparaît en fondu.
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: selectionState.isSelecting
-              ? _selectionAppBar(context, selectionState)
-              : _mainAppBar(context),
+    final content = Column(
+      children: [
+        const FilterBar(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            children: [
+              PopupMenuButton<SortOption>(
+                child: Row(
+                  children: [
+                    const Icon(Icons.swap_vert),
+                    const SizedBox(width: 8),
+                    Text(l10n.sortLabel),
+                  ],
+                ),
+                onSelected: (SortOption result) {
+                  ref.read(sortProvider.notifier).setSort(result);
+                },
+                itemBuilder: (BuildContext context) =>
+                    <PopupMenuEntry<SortOption>>[
+                      PopupMenuItem<SortOption>(
+                        value: SortOption.dateAdded,
+                        child: ListTile(
+                          leading: const Icon(Icons.calendar_today),
+                          title: Text(l10n.sortDateAdded),
+                        ),
+                      ),
+                      PopupMenuItem<SortOption>(
+                        value: SortOption.title,
+                        child: ListTile(
+                          leading: const Icon(Icons.sort_by_alpha),
+                          title: Text(l10n.sortTitle),
+                        ),
+                      ),
+                      PopupMenuItem<SortOption>(
+                        value: SortOption.author,
+                        child: ListTile(
+                          leading: const Icon(Icons.person),
+                          title: Text(l10n.sortAuthor),
+                        ),
+                      ),
+                    ],
+              ),
+              const Spacer(),
+              if (isDesktop)
+                IconButton(
+                  tooltip: l10n.refreshCoversTooltip,
+                  onPressed: _refreshing ? null : _refreshCovers,
+                  icon: _refreshing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
+                ),
+              IconButton(
+                tooltip: l10n.changeViewTooltip,
+                icon: Consumer(
+                  builder: (context, ref, child) {
+                    final view = ref.watch(viewProvider);
+                    return AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, animation) =>
+                          ScaleTransition(scale: animation, child: child),
+                      child: Icon(
+                        switch (view) {
+                          ViewOption.list => Icons.view_list,
+                          ViewOption.grid => Icons.grid_view,
+                          ViewOption.gridWithDetails => Icons.grid_on,
+                        },
+                        key: ValueKey(view),
+                      ),
+                    );
+                  },
+                ),
+                onPressed: () {
+                  setState(() => _animateEntrance = false);
+                  ref.read(viewProvider.notifier).toggle();
+                },
+              ),
+            ],
+          ),
+        ),
+        // Changement d'onglet : fondu enchaîné (motif Material de la barre de
+        // navigation).
+        Expanded(
+          child: PageTransitionSwitcher(
+            transitionBuilder: (child, animation, secondaryAnimation) =>
+                FadeThroughTransition(
+                  animation: animation,
+                  secondaryAnimation: secondaryAnimation,
+                  fillColor: Colors.transparent,
+                  child: child,
+                ),
+            child: _buildBookList(_selectedIndex),
+          ),
+        ),
+      ],
+    );
+
+    // Raccourcis clavier (ordinateur) : Ctrl+F recherche dans la
+    // bibliothèque, Ctrl+N ajoute un livre, Échap quitte la sélection, F5
+    // rafraîchit les couvertures. Cmd au lieu de Ctrl sur macOS.
+    return CallbackShortcuts(
+      bindings: {
+        for (final meta in [false, true]) ...{
+          SingleActivator(
+            LogicalKeyboardKey.keyF,
+            control: !meta,
+            meta: meta,
+          ): _openLocalSearch,
+          SingleActivator(
+            LogicalKeyboardKey.keyN,
+            control: !meta,
+            meta: meta,
+          ): _openSearch,
+        },
+        const SingleActivator(LogicalKeyboardKey.escape): () =>
+            ref.read(selectionProvider.notifier).clear(),
+        if (isDesktop)
+          const SingleActivator(LogicalKeyboardKey.f5): _refreshCovers,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          // Passage en mode sélection : la barre contextuelle apparaît en fondu.
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(kToolbarHeight),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: selectionState.isSelecting
+                  ? _selectionAppBar(context, selectionState)
+                  : _mainAppBar(context),
+            ),
+          ),
+          body: wide
+              ? Row(
+                  children: [
+                    NavigationRail(
+                      selectedIndex: _selectedIndex,
+                      onDestinationSelected: _selectTab,
+                      labelType: NavigationRailLabelType.all,
+                      leading: _railAddButtons(l10n),
+                      destinations: [
+                        for (final d in destinations)
+                          NavigationRailDestination(
+                            icon: Icon(d.icon),
+                            selectedIcon: Icon(d.selected),
+                            label: Text(d.label),
+                          ),
+                      ],
+                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: content),
+                  ],
+                )
+              : content,
+          bottomNavigationBar: wide
+              ? null
+              : NavigationBar(
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: _selectTab,
+                  destinations: [
+                    for (final d in destinations)
+                      NavigationDestination(
+                        icon: Icon(d.icon),
+                        selectedIcon: Icon(d.selected),
+                        label: d.label,
+                      ),
+                  ],
+                ),
+          floatingActionButton: wide ? null : _addButton(l10n),
         ),
       ),
-      body: Column(
+    );
+  }
+
+  /// Boutons d'ajout en tête du rail : recherche, et scanner si l'appareil a
+  /// une caméra.
+  Widget _railAddButtons(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      child: Column(
         children: [
-          const FilterBar(),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                PopupMenuButton<SortOption>(
-                  child: Row(
-                    children: [
-                      const Icon(Icons.swap_vert),
-                      const SizedBox(width: 8),
-                      Text(l10n.sortLabel),
-                    ],
-                  ),
-                  onSelected: (SortOption result) {
-                    ref.read(sortProvider.notifier).setSort(result);
-                  },
-                  itemBuilder: (BuildContext context) =>
-                      <PopupMenuEntry<SortOption>>[
-                        PopupMenuItem<SortOption>(
-                          value: SortOption.dateAdded,
-                          child: ListTile(
-                            leading: const Icon(Icons.calendar_today),
-                            title: Text(l10n.sortDateAdded),
-                          ),
-                        ),
-                        PopupMenuItem<SortOption>(
-                          value: SortOption.title,
-                          child: ListTile(
-                            leading: const Icon(Icons.sort_by_alpha),
-                            title: Text(l10n.sortTitle),
-                          ),
-                        ),
-                        PopupMenuItem<SortOption>(
-                          value: SortOption.author,
-                          child: ListTile(
-                            leading: const Icon(Icons.person),
-                            title: Text(l10n.sortAuthor),
-                          ),
-                        ),
-                      ],
-                ),
-                IconButton(
-                  tooltip: l10n.changeViewTooltip,
-                  icon: Consumer(
-                    builder: (context, ref, child) {
-                      final view = ref.watch(viewProvider);
-                      return AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        transitionBuilder: (child, animation) =>
-                            ScaleTransition(scale: animation, child: child),
-                        child: Icon(
-                          switch (view) {
-                            ViewOption.list => Icons.view_list,
-                            ViewOption.grid => Icons.grid_view,
-                            ViewOption.gridWithDetails => Icons.grid_on,
-                          },
-                          key: ValueKey(view),
-                        ),
-                      );
-                    },
-                  ),
-                  onPressed: () {
-                    setState(() => _animateEntrance = false);
-                    ref.read(viewProvider.notifier).toggle();
-                  },
-                ),
-              ],
-            ),
+          FloatingActionButton(
+            heroTag: 'rail-add',
+            elevation: 0,
+            tooltip: l10n.addBookTooltip,
+            onPressed: _openSearch,
+            child: const Icon(Icons.add),
           ),
-          // Changement d'onglet : fondu enchaîné (motif Material de la barre de
-          // navigation).
-          Expanded(
-            child: PageTransitionSwitcher(
-              transitionBuilder: (child, animation, secondaryAnimation) =>
-                  FadeThroughTransition(
-                    animation: animation,
-                    secondaryAnimation: secondaryAnimation,
-                    fillColor: Colors.transparent,
-                    child: child,
-                  ),
-              child: _buildBookList(_selectedIndex),
+          if (hasCameraFeatures) ...[
+            const SizedBox(height: 12),
+            FloatingActionButton.small(
+              heroTag: 'rail-scan',
+              elevation: 0,
+              tooltip: l10n.scanLabel,
+              onPressed: _openScanner,
+              child: const Icon(Icons.qr_code_scanner),
             ),
-          ),
+          ],
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-            _animateEntrance = false;
-          });
-        },
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.book_outlined),
-            selectedIcon: const Icon(Icons.book),
-            label: l10n.tabToRead,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.auto_stories_outlined),
-            selectedIcon: const Icon(Icons.auto_stories),
-            label: l10n.tabReading,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.check),
-            selectedIcon: const Icon(Icons.done_all),
-            label: l10n.tabRead,
-          ),
-        ],
-      ),
-      floatingActionButton: SpeedDial(
-        icon: Icons.add,
-        label: Text(l10n.addLabel),
-        activeIcon: Icons.close,
-        spacing: 3,
-        childPadding: const EdgeInsets.all(5),
-        spaceBetweenChildren: 4,
+    );
+  }
+
+  /// Bouton d'ajout (écran étroit) : menu Scanner / Recherche sur téléphone,
+  /// simple bouton de recherche là où il n'y a pas de caméra.
+  Widget _addButton(AppLocalizations l10n) {
+    if (!hasCameraFeatures) {
+      return FloatingActionButton.extended(
+        heroTag: 'add-fab',
         tooltip: l10n.addBookTooltip,
-        heroTag: 'speed-dial-hero-tag',
-        elevation: 8.0,
-        shape: const CircleBorder(),
-        children: [
-          SpeedDialChild(
-            child: const Icon(Icons.qr_code_scanner),
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            label: l10n.scanLabel,
-            labelStyle: const TextStyle(fontSize: 18.0),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const ScannerPage()),
-              );
-            },
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.search),
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            label: l10n.searchLabel,
-            labelStyle: const TextStyle(fontSize: 18.0),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const SearchBookPage()),
-              );
-            },
-          ),
-        ],
-      ),
+        onPressed: _openSearch,
+        icon: const Icon(Icons.add),
+        label: Text(l10n.addLabel),
+      );
+    }
+    return SpeedDial(
+      icon: Icons.add,
+      label: Text(l10n.addLabel),
+      activeIcon: Icons.close,
+      spacing: 3,
+      childPadding: const EdgeInsets.all(5),
+      spaceBetweenChildren: 4,
+      tooltip: l10n.addBookTooltip,
+      heroTag: 'speed-dial-hero-tag',
+      elevation: 8.0,
+      shape: const CircleBorder(),
+      children: [
+        SpeedDialChild(
+          child: const Icon(Icons.qr_code_scanner),
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          label: l10n.scanLabel,
+          labelStyle: const TextStyle(fontSize: 18.0),
+          onTap: _openScanner,
+        ),
+        SpeedDialChild(
+          child: const Icon(Icons.search),
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          label: l10n.searchLabel,
+          labelStyle: const TextStyle(fontSize: 18.0),
+          onTap: _openSearch,
+        ),
+      ],
     );
   }
 
@@ -315,9 +449,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       leading: IconButton(
         icon: const Icon(Icons.search),
         tooltip: MaterialLocalizations.of(context).searchFieldLabel,
-        onPressed: () {
-          showSearch(context: context, delegate: LocalSearchDelegate(ref));
-        },
+        onPressed: _openLocalSearch,
       ),
       title: Text(l10n.appTitle),
       actions: [
@@ -377,8 +509,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget _buildBookList(int index) {
     // Une clé par onglet : chaque liste garde son propre état (défilement,
     // animations) au lieu de réutiliser celui de l'onglet précédent.
-    const shelves = ['to_read', 'reading', 'read'];
-    final shelf = shelves[index];
+    final shelf = _shelves[index];
     return BookListView(
       key: ValueKey(shelf),
       status: shelf,
