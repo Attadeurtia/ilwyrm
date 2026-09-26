@@ -1,4 +1,4 @@
-name: Build & Release Signed APK
+name: Build & Release (Android + Linux)
 
 on:
   push:
@@ -58,6 +58,17 @@ jobs:
           flutter build apk --release --target-platform android-arm
           cp build/app/outputs/flutter-apk/app-release.apk dist/app-release-armeabi-v7a.apk
 
+      # Version Linux (ordinateur) : archive du dossier de l'application, à
+      # extraire puis lancer (ilwyrm/ilwyrm). Un échec ici n'empêche pas la
+      # publication des APK.
+      - name: Build Linux bundle
+        continue-on-error: true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+          flutter build linux --release
+          tar -czf dist/ilwyrm-linux-x64.tar.gz -C build/linux/x64/release --transform 's,^bundle,ilwyrm,' bundle
+
       # ✅ Une seule étape : crée la release ET upload les APK
       - name: Release & Upload APK
         uses: softprops/action-gh-release@v3
@@ -67,7 +78,10 @@ jobs:
           body: |
             **app-release.apk** : pour la quasi-totalité des téléphones (64 bits).
             **app-release-armeabi-v7a.apk** : uniquement pour les anciens téléphones 32 bits.
-          files: dist/*.apk
+            **ilwyrm-linux-x64.tar.gz** : version Linux (PC) — extraire l'archive puis lancer `ilwyrm/ilwyrm`.
+          files: |
+            dist/*.apk
+            dist/*.tar.gz
           overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
