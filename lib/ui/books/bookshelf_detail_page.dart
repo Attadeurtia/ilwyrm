@@ -17,6 +17,7 @@ import 'manage_tags_dialog.dart';
 import '../home/availability_provider.dart';
 import '../theme_extensions.dart';
 import '../../data/enums.dart';
+import '../../l10n/l10n.dart';
 
 class BookDetailsPage extends ConsumerWidget {
   final int bookId;
@@ -63,6 +64,9 @@ class BookDetailsPage extends ConsumerWidget {
         title: Text(book.title),
         actions: [
           IconButton(
+            tooltip: book.isFavorite
+                ? context.l10n.favoriteRemove
+                : context.l10n.actionAddToFavorites,
             icon: Icon(
               book.isFavorite ? Icons.favorite : Icons.favorite_border,
               color: book.isFavorite
@@ -77,7 +81,7 @@ class BookDetailsPage extends ConsumerWidget {
           PopupMenuButton(
             itemBuilder: (context) => [
               PopupMenuItem(
-                child: const Text('Modifier'),
+                child: Text(context.l10n.actionEdit),
                 onTap: () {
                   Future.delayed(const Duration(seconds: 0), () {
                     if (context.mounted) {
@@ -94,7 +98,7 @@ class BookDetailsPage extends ConsumerWidget {
               ),
               PopupMenuItem(
                 child: Text(
-                  'Supprimer',
+                  context.l10n.actionDelete,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
                   ),
@@ -105,19 +109,19 @@ class BookDetailsPage extends ConsumerWidget {
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('Supprimer le livre ?'),
+                        title: Text(context.l10n.deleteBookTitle),
                         content: Text(
-                          'Voulez-vous vraiment supprimer « ${book.title} » ?',
+                          context.l10n.deleteBookMessage(book.title),
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Annuler'),
+                            child: Text(context.l10n.actionCancel),
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, true),
                             child: Text(
-                              'Supprimer',
+                              context.l10n.actionDelete,
                               style: TextStyle(
                                 color: Theme.of(ctx).colorScheme.error,
                               ),
@@ -189,18 +193,18 @@ class BookDetailsPage extends ConsumerWidget {
                               ),
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: const Row(
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.add_photo_alternate_outlined,
                                   size: 16,
                                   color: Colors.white,
                                 ),
-                                SizedBox(width: 4),
+                                const SizedBox(width: 4),
                                 Text(
-                                  'Couverture',
-                                  style: TextStyle(
+                                  context.l10n.coverHint,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
                                   ),
@@ -263,7 +267,7 @@ class BookDetailsPage extends ConsumerWidget {
                         )
                       else
                         Text(
-                          'Auteur inconnu',
+                          context.l10n.unknownAuthor,
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
                       const SizedBox(height: 16),
@@ -275,10 +279,8 @@ class BookDetailsPage extends ConsumerWidget {
                           if (isbn != null) {
                             Clipboard.setData(ClipboardData(text: isbn));
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'ISBN copié dans le presse-papier',
-                                ),
+                              SnackBar(
+                                content: Text(context.l10n.isbnCopied),
                               ),
                             );
                           }
@@ -293,7 +295,7 @@ class BookDetailsPage extends ConsumerWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'ISBN :',
+                              context.l10n.isbnLabel,
                               style: Theme.of(context).textTheme.labelLarge
                                   ?.copyWith(
                                     color: Theme.of(
@@ -303,7 +305,11 @@ class BookDetailsPage extends ConsumerWidget {
                                   ),
                             ),
                             const SizedBox(width: 8),
-                            Text(book.isbn13 ?? book.isbn10 ?? 'Inconnu'),
+                            Text(
+                              book.isbn13 ??
+                                  book.isbn10 ??
+                                  context.l10n.unknownValue,
+                            ),
                           ],
                         ),
                       ),
@@ -312,7 +318,7 @@ class BookDetailsPage extends ConsumerWidget {
                       Row(
                         children: [
                           Text(
-                            'Ajouté :',
+                            context.l10n.addedLabel,
                             style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
                                   color: Theme.of(
@@ -322,7 +328,7 @@ class BookDetailsPage extends ConsumerWidget {
                                 ),
                           ),
                           const SizedBox(width: 8),
-                          Text(_formatDate(book.dateAdded)),
+                          Text(_formatDate(context, book.dateAdded)),
                         ],
                       ),
                     ],
@@ -334,7 +340,7 @@ class BookDetailsPage extends ConsumerWidget {
 
             // Summary
             Text(
-              'Résumé',
+              context.l10n.summaryTitle,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -357,13 +363,14 @@ class BookDetailsPage extends ConsumerWidget {
               children: [
                 Flexible(
                   child: Text(
-                    'Tags',
+                    context.l10n.tagsTitle,
                     style: Theme.of(context).textTheme.titleLarge,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
+                  tooltip: context.l10n.manageTagsTitle,
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -380,7 +387,7 @@ class BookDetailsPage extends ConsumerWidget {
 
             // Other books by author
             Text(
-              'Autres livres de l\'auteur',
+              context.l10n.otherBooksByAuthor,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
@@ -394,8 +401,8 @@ class BookDetailsPage extends ConsumerWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return DateFormat.yMMMd('fr_FR').format(date);
+  String _formatDate(BuildContext context, DateTime date) {
+    return DateFormat.yMMMd(context.l10n.localeName).format(date);
   }
 }
 
@@ -413,7 +420,7 @@ class _AuthorBooksList extends ConsumerWidget {
     if (!booksAsync.hasValue) return const SizedBox.shrink();
     final books = booksAsync.value!.where((b) => b.id != currentBookId).toList();
     if (books.isEmpty) {
-      return const Text('Aucun autre livre trouvé.');
+      return Text(context.l10n.noOtherBooks);
     }
 
     return Column(
@@ -456,7 +463,7 @@ class _BookTagsList extends ConsumerWidget {
 
     if (allTags.isEmpty) {
       return Text(
-        'Aucun tag disponible.',
+        context.l10n.noTagsAvailable,
         style: TextStyle(color: Theme.of(context).colorScheme.outline),
       );
     }
@@ -501,24 +508,22 @@ class _ReadingStatusButton extends ConsumerWidget {
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Theme.of(context).colorScheme.onPrimary,
           ),
-          child: const Text('Commencer', style: TextStyle(fontSize: 18)),
+          child: Text(
+            context.l10n.startReading,
+            style: const TextStyle(fontSize: 18),
+          ),
         ),
       );
     } else if (status == BookShelf.reading) {
       final days = book.startDate != null
           ? DateTime.now().difference(book.startDate!).inDays
           : 0;
-      final daysText = switch (days) {
-        <= 0 => 'aujourd\'hui',
-        1 => 'hier',
-        _ => 'il y a $days jours',
-      };
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Commencé $daysText',
+            context.l10n.startedAgo(days < 0 ? 0 : days),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge,
           ),
@@ -532,15 +537,18 @@ class _ReadingStatusButton extends ConsumerWidget {
               backgroundColor: Theme.of(context).colorScheme.secondary,
               foregroundColor: Theme.of(context).colorScheme.onSecondary,
             ),
-            child: const Text('Terminé', style: TextStyle(fontSize: 18)),
+            child: Text(
+              context.l10n.finishReading,
+              style: const TextStyle(fontSize: 18),
+            ),
           ),
         ],
       );
     } else if (status == BookShelf.read) {
-      String durationText = 'Durée inconnue';
+      String durationText = context.l10n.durationUnknown;
       if (book.startDate != null && book.finishDate != null) {
         final days = book.finishDate!.difference(book.startDate!).inDays;
-        durationText = days <= 1 ? '1 jour' : '$days jours';
+        durationText = context.l10n.durationDays(days < 1 ? 1 : days);
       }
 
       return Container(
@@ -555,9 +563,9 @@ class _ReadingStatusButton extends ConsumerWidget {
         ),
         child: Column(
           children: [
-            const Text(
-              'Temps de lecture',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              context.l10n.readingTimeTitle,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(durationText, style: Theme.of(context).textTheme.titleMedium),
@@ -624,7 +632,7 @@ class _LibraryAvailabilityWidgetState
           children: [
             Flexible(
               child: Text(
-                'Disponibilité en bibliothèque',
+                context.l10n.libraryAvailabilityTitle,
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -634,6 +642,7 @@ class _LibraryAvailabilityWidgetState
             if (response != null)
               IconButton(
                 icon: const Icon(Icons.refresh),
+                tooltip: context.l10n.refreshTooltip,
                 onPressed: _isLoading ? null : _checkAvailability,
               ),
           ],
@@ -643,13 +652,13 @@ class _LibraryAvailabilityWidgetState
           ElevatedButton.icon(
             onPressed: _checkAvailability,
             icon: const Icon(Icons.local_library),
-            label: const Text('Vérifier la disponibilité'),
+            label: Text(context.l10n.checkAvailability),
           )
         else if (_isLoading)
           const Center(child: CircularProgressIndicator())
         else if (_error != null)
           Text(
-            'Erreur : $_error',
+            context.l10n.genericError('$_error'),
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           )
         else if (response != null)
@@ -666,7 +675,9 @@ class _LibraryAvailabilityWidgetState
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    response.available ? 'Disponible' : 'Non disponible',
+                    response.available
+                        ? context.l10n.availableLabel
+                        : context.l10n.notAvailableLabel,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: response.available
@@ -695,7 +706,13 @@ class _LibraryAvailabilityWidgetState
                 ),
               const SizedBox(height: 4),
               Text(
-                'Dernière vérification : ${DateFormat.yMMMd('fr_FR').add_Hm().format(DateTime.fromMillisecondsSinceEpoch(response.lastCheck))}',
+                context.l10n.lastChecked(
+                  DateFormat.yMMMd(context.l10n.localeName)
+                      .add_Hm()
+                      .format(
+                        DateTime.fromMillisecondsSinceEpoch(response.lastCheck),
+                      ),
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -712,10 +729,11 @@ class _BookMetadataTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final Map<String, String?> metadata = {
-      'Éditeur': book.publisher,
-      'Date de publication': book.publicationYear?.toString(),
-      'Nombre de pages': book.pageCount?.toString(),
+      l10n.metaPublisher: book.publisher,
+      l10n.metaPublicationDate: book.publicationYear?.toString(),
+      l10n.metaPageCount: book.pageCount?.toString(),
     };
 
     // Filter out null values
@@ -731,7 +749,7 @@ class _BookMetadataTable extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Informations bibliographiques',
+          l10n.bibliographicInfo,
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -783,7 +801,7 @@ class _FullscreenCoverPage extends ConsumerStatefulWidget {
 }
 
 class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
-  final BookSearchService _service = BookSearchService();
+  late final BookSearchService _service = ref.read(bookSearchServiceProvider);
   List<_CoverOption> _alternatives = const [];
   bool _loading = true;
 
@@ -879,9 +897,9 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
     await ref.read(booksRepositoryProvider).updateCover(widget.book.id, persisted);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Couverture mise à jour'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(context.l10n.coverUpdated),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -898,7 +916,7 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
               alignment: Alignment.centerRight,
               child: IconButton(
                 icon: const Icon(Icons.close, color: Colors.white),
-                tooltip: 'Fermer',
+                tooltip: context.l10n.actionClose,
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
             ),
@@ -934,7 +952,16 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
                 ),
               ),
             ),
-            _buildAlternatives(),
+            // La bande apparaît en fondu, et sa hauteur s'anime (chargement →
+            // liste, ou disparition s'il n'y a rien à proposer).
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: _buildAlternatives(),
+              ),
+            ),
           ],
         ),
       ),
@@ -944,6 +971,7 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
   Widget _buildAlternatives() {
     if (_loading) {
       return const SizedBox(
+        key: ValueKey('loading'),
         height: 150,
         child: Center(
           child: SizedBox(
@@ -956,15 +984,16 @@ class _FullscreenCoverPageState extends ConsumerState<_FullscreenCoverPage> {
     }
     if (_alternatives.isEmpty) return const SizedBox.shrink();
     return SizedBox(
+      key: const ValueKey('alternatives'),
       height: 168,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Text(
-              'Autres couvertures',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              context.l10n.otherCovers,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
           ),
           Expanded(
@@ -1079,7 +1108,7 @@ class _BookSummaryState extends ConsumerState<_BookSummary> {
     // édition du même livre), en ne gardant qu'un résultat au titre concordant.
     String? desc;
     try {
-      final service = BookSearchService();
+      final service = ref.read(bookSearchServiceProvider);
       if (isbn.isNotEmpty) desc = _firstDescription(await service.search(isbn));
       if (desc == null && titleQuery.isNotEmpty) {
         desc = _firstDescription(
@@ -1135,29 +1164,50 @@ class _BookSummaryState extends ConsumerState<_BookSummary> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return Row(
-        children: [
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'Chargement du résumé…',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-        ],
-      );
-    }
+    // Le résumé remplace l'indicateur en fondu, et la hauteur s'anime au lieu
+    // de faire sauter la mise en page.
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topLeft,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        layoutBuilder: (current, previous) => Stack(
+          alignment: Alignment.topLeft,
+          children: [...previous, ?current],
+        ),
+        child: _loading ? _loadingRow(context) : _summaryText(context),
+      ),
+    );
+  }
+
+  Widget _loadingRow(BuildContext context) {
+    return Row(
+      key: const ValueKey('loading'),
+      children: [
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          context.l10n.summaryLoading,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryText(BuildContext context) {
     final text = (_summary != null && _summary!.isNotEmpty)
         ? _summary!
-        : 'Aucun résumé disponible.';
+        : context.l10n.noSummary;
     return Text(
       text,
+      key: const ValueKey('summary'),
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
             height: 1.5,

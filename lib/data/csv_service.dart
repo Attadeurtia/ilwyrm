@@ -8,12 +8,26 @@ import 'database.dart';
 import 'enums.dart';
 import 'open_library_api.dart';
 
+/// Nature d'une erreur d'import (le message est composé, traduit, par l'UI).
+enum CsvImportErrorKind { emptyFile, wrongColumnCount, rowFailed, unreadableFile }
+
+/// Erreur d'import : ligne concernée (numérotée comme dans le fichier) et détail
+/// technique éventuel.
+class CsvImportError {
+  const CsvImportError(this.kind, {this.line, this.title, this.detail});
+
+  final CsvImportErrorKind kind;
+  final int? line;
+  final String? title;
+  final String? detail;
+}
+
 /// Résultat d'une opération d'import CSV.
 class CsvImportResult {
   final int importedCount;
   final int skippedCount;
   final int totalCount;
-  final List<String> errors;
+  final List<CsvImportError> errors;
 
   CsvImportResult({
     required this.importedCount,
@@ -202,7 +216,7 @@ class CsvService {
         importedCount: 0,
         skippedCount: 0,
         totalCount: 0,
-        errors: ['Le fichier CSV est vide.'],
+        errors: const [CsvImportError(CsvImportErrorKind.emptyFile)],
       );
     }
 
@@ -212,7 +226,7 @@ class CsvService {
 
     int importedCount = 0;
     int skippedCount = 0;
-    final errors = <String>[];
+    final errors = <CsvImportError>[];
 
     // 1) Lecture des lignes + couvertures manquantes (réseau, hors transaction).
     final parsed = <({int line, Map<String, String> map, String? coverUrl})>[];
@@ -221,7 +235,9 @@ class CsvService {
       final row = dataRows[i];
       if (row.length != headers.length) {
         skippedCount++;
-        errors.add('Ligne ${i + 2} : nombre de colonnes incorrect.');
+        errors.add(
+          CsvImportError(CsvImportErrorKind.wrongColumnCount, line: i + 2),
+        );
         continue;
       }
 
@@ -357,7 +373,12 @@ class CsvService {
         } catch (e) {
           skippedCount++;
           errors.add(
-            'Ligne ${entry.line} (${map['title'] ?? '?'}) : ${e.toString()}',
+            CsvImportError(
+              CsvImportErrorKind.rowFailed,
+              line: entry.line,
+              title: map['title'],
+              detail: e.toString(),
+            ),
           );
         }
       }

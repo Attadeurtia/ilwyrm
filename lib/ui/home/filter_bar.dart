@@ -6,6 +6,7 @@ import 'filter_provider.dart';
 
 import '../../data/database.dart';
 import '../../data/repositories/books_repository.dart';
+import '../../l10n/l10n.dart';
 import 'tag_filter_provider.dart';
 
 class FilterBar extends ConsumerWidget {
@@ -30,7 +31,7 @@ class FilterBar extends ConsumerWidget {
             // Favoris Filter
             final isSelected = selectedFilters.contains('Favoris');
             return FilterChip(
-              label: const Text('Favoris'),
+              label: Text(context.l10n.favoritesFilter),
               selected: isSelected,
               onSelected: (selected) {
                 ref.read(filterProvider.notifier).toggleFilter('Favoris');

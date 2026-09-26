@@ -5,6 +5,7 @@ import '../../data/book_companion_mapper.dart';
 import '../../data/book_search_api.dart';
 import '../../data/book_search_service.dart';
 import '../../data/library_index.dart';
+import '../../l10n/l10n.dart';
 import '../theme_extensions.dart';
 import 'scan_cover_page.dart';
 
@@ -18,7 +19,7 @@ class BatchAddPage extends ConsumerStatefulWidget {
 }
 
 class _BatchAddPageState extends ConsumerState<BatchAddPage> {
-  final BookSearchService _service = BookSearchService();
+  late final BookSearchService _service = ref.read(bookSearchServiceProvider);
 
   /// Map of ISBN -> List of found books from all sources
   final Map<String, List<ExternalBook>> _candidates = {};
@@ -100,16 +101,17 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Échec de l\'ajout : $e')),
+          SnackBar(content: Text(context.l10n.addFailed('$e'))),
         );
       }
       return;
     }
 
     if (mounted) {
+      final l10n = context.l10n;
       final message = skipped > 0
-          ? '$added livre(s) ajouté(s), $skipped déjà présent(s) ignoré(s)'
-          : '$added livre(s) ajouté(s) !';
+          ? '${l10n.booksAddedCount(added)}, ${l10n.booksSkippedCount(skipped)}'
+          : l10n.booksAddedCount(added);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -144,7 +146,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                'Choisir une source pour $isbn',
+                context.l10n.chooseSourceFor(isbn),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
@@ -191,25 +193,25 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Confirmer l\'ajout'),
+        title: Text(context.l10n.confirmAddTitle),
         actions: [
           if (!_isLoading && _selectedBooks.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.check),
               onPressed: _isSaving ? null : _addAll,
-              tooltip: 'Tout ajouter',
+              tooltip: context.l10n.addAllTooltip,
             ),
         ],
       ),
       body: _isLoading
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
                   Text(
-                    'Recherche sur OpenLibrary, la BnF, Inventaire et Google Books…',
+                    context.l10n.batchSearching,
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -239,8 +241,9 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Impossible de trouver ${_failedIsbns.length} livre(s) '
-                                'par code-barres.',
+                                context.l10n.barcodeNotFound(
+                                  _failedIsbns.length,
+                                ),
                               ),
                             ),
                           ],
@@ -256,7 +259,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                             ),
                           ),
                           icon: const Icon(Icons.document_scanner),
-                          label: const Text('Scanner la couverture'),
+                          label: Text(context.l10n.scanCoverButton),
                         ),
                       ],
                     ),
@@ -288,7 +291,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                             Text(book.authorText),
                             if (inLibrary)
                               Text(
-                                'Déjà dans la bibliothèque',
+                                context.l10n.alreadyInLibrary,
                                 style: TextStyle(
                                   color: context.semanticColors.warning,
                                   fontSize: 12,
@@ -297,7 +300,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                               ),
                             if (candidateCount > 1)
                               Text(
-                                'Source: ${book.source} (Tap pour changer)',
+                                context.l10n.sourceTapToChange(book.source),
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.primary,
                                   fontSize: 12,
@@ -305,8 +308,8 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                               )
                             else
                               Text(
-                                'Source: ${book.source}',
-                                style: TextStyle(fontSize: 12),
+                                context.l10n.sourceLabel(book.source),
+                                style: const TextStyle(fontSize: 12),
                               ),
                           ],
                         ),
@@ -328,9 +331,9 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                     icon: const Icon(Icons.playlist_add),
                     label: Text(
                       toAdd == _selectedBooks.length
-                          ? 'Ajouter $toAdd livre(s)'
-                          : 'Ajouter $toAdd livre(s) · '
-                                '${_selectedBooks.length - toAdd} déjà présent(s)',
+                          ? context.l10n.addBooksButton(toAdd)
+                          : '${context.l10n.addBooksButton(toAdd)} · '
+                                '${context.l10n.alreadyPresentCount(_selectedBooks.length - toAdd)}',
                     ),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(50),

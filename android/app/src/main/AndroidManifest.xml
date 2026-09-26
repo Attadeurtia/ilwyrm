@@ -3,10 +3,13 @@
          (recherche, couvertures, BnF…). La permission n'était présente que dans
          les manifests debug/profile. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- enableOnBackInvokedCallback : active le geste « retour prédictif »
+         d'Android (aperçu de l'écran précédent pendant le geste). -->
     <application
         android:label="ilwyrm"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

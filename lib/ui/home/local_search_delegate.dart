@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database.dart';
 import '../books/bookshelf_detail_page.dart';
 import '../books/book_cover.dart';
+import '../../l10n/l10n.dart';
 
 class LocalSearchDelegate extends SearchDelegate<Book?> {
   final WidgetRef ref;
@@ -45,7 +46,7 @@ class LocalSearchDelegate extends SearchDelegate<Book?> {
 
   Widget _buildSearchResults(BuildContext context) {
     if (query.isEmpty) {
-      return const Center(child: Text('Rechercher un livre...'));
+      return Center(child: Text(context.l10n.localSearchPrompt));
     }
 
     final database = ref.read(databaseProvider);
@@ -59,13 +60,15 @@ class LocalSearchDelegate extends SearchDelegate<Book?> {
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Erreur: ${snapshot.error}'));
+          return Center(
+            child: Text(context.l10n.genericError('${snapshot.error}')),
+          );
         }
 
         final books = snapshot.data ?? [];
 
         if (books.isEmpty) {
-          return const Center(child: Text('Aucun livre trouvé.'));
+          return Center(child: Text(context.l10n.noBookFound));
         }
 
         return ListView.builder(
@@ -79,7 +82,7 @@ class LocalSearchDelegate extends SearchDelegate<Book?> {
                 child: BookCover(book: book, borderRadius: 4, compact: true),
               ),
               title: Text(book.title),
-              subtitle: Text(book.authorText ?? 'Auteur inconnu'),
+              subtitle: Text(book.authorText ?? context.l10n.unknownAuthor),
               onTap: () {
                 close(context, book);
                 Navigator.push(

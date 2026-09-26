@@ -59,6 +59,7 @@ dependencies:
   image_picker: ^1.2.3
   google_mlkit_text_recognition: ^0.16.0
   permission_handler: ^11.3.1
+  animations: ^2.2.0
 
 flutter_launcher_icons:
   android: true
@@ -88,6 +89,8 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  # Génère AppLocalizations (lib/l10n) à partir des fichiers .arb.
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

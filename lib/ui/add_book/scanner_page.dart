@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../data/library_index.dart';
+import '../../l10n/l10n.dart';
 import 'batch_add_page.dart';
 import 'scan_cover_page.dart';
 
@@ -46,7 +47,7 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
         _ignoredCodes.add(isbn);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('« $isbn » n\'est pas un ISBN de livre : ignoré'),
+            content: Text(context.l10n.notAnIsbn(isbn)),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -64,8 +65,8 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
         SnackBar(
           content: Text(
             inLibrary
-                ? '« $isbn » est déjà dans ta bibliothèque'
-                : 'Livre scanné : $isbn',
+                ? context.l10n.isbnAlreadyInLibrary(isbn)
+                : context.l10n.bookScanned(isbn),
           ),
           backgroundColor:
               inLibrary ? Theme.of(context).colorScheme.tertiary : null,
@@ -96,11 +97,11 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
     ref.watch(libraryIndexProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scanner des livres'),
+        title: Text(context.l10n.scannerTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.document_scanner),
-            tooltip: 'Sans code-barres ? Scanner la couverture',
+            tooltip: context.l10n.scanCoverTooltip,
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ScanCoverPage()),
@@ -108,10 +109,12 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
           ),
           IconButton(
             icon: const Icon(Icons.flash_on),
+            tooltip: context.l10n.torchTooltip,
             onPressed: () => _controller.toggleTorch(),
           ),
           IconButton(
             icon: const Icon(Icons.camera_rear),
+            tooltip: context.l10n.switchCameraTooltip,
             onPressed: () => _controller.switchCamera(),
           ),
         ],
@@ -136,8 +139,7 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Scanne le code-barres d\'un livre.\n'
-                      'Pas de code-barres ? Utilise l\'icône couverture en haut.',
+                      context.l10n.scannerHint,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onPrimary,
@@ -147,7 +149,7 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
                     if (_duplicateIsbns.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
-                        '${_duplicateIsbns.length} déjà dans ta bibliothèque',
+                        context.l10n.duplicatesInLibrary(_duplicateIsbns.length),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onPrimary,
@@ -167,8 +169,8 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
         onPressed: _finishScanning,
         label: Text(
           _scannedIsbns.isEmpty
-              ? 'Annuler'
-              : 'Terminer (${_scannedIsbns.length})',
+              ? context.l10n.actionCancel
+              : context.l10n.finishScanning(_scannedIsbns.length),
         ),
         icon: Icon(_scannedIsbns.isEmpty ? Icons.close : Icons.check),
       ),

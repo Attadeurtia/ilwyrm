@@ -1,9 +1,13 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../l10n/app_localizations.dart';
 
 class SettingsRepository {
   static const _keyLibraryAvailabilityEnabled = 'library_availability_enabled';
   static const _keyLibraryApiUrl = 'library_api_url';
+  static const _keyLanguageCode = 'app_language_code';
 
   final SharedPreferences _prefs;
 
@@ -20,6 +24,17 @@ class SettingsRepository {
 
   Future<void> setLibraryApiUrl(String url) async {
     await _prefs.setString(_keyLibraryApiUrl, url);
+  }
+
+  /// Langue choisie dans les paramètres (`fr`, `en`…), null = celle du système.
+  String? get languageCode => _prefs.getString(_keyLanguageCode);
+
+  Future<void> setLanguageCode(String? code) async {
+    if (code == null) {
+      await _prefs.remove(_keyLanguageCode);
+    } else {
+      await _prefs.setString(_keyLanguageCode, code);
+    }
   }
 }
 
@@ -75,3 +90,35 @@ class SettingsNotifier extends Notifier<AppSettings> {
 
 final settingsProvider =
     NotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
+
+/// Langue imposée par l'utilisateur, ou null pour suivre le système.
+class LocaleNotifier extends Notifier<Locale?> {
+  @override
+  Locale? build() {
+    final code = ref.read(settingsRepositoryProvider).languageCode;
+    return code == null ? null : Locale(code);
+  }
+
+  Future<void> setLocale(Locale? locale) async {
+    await ref
+        .read(settingsRepositoryProvider)
+        .setLanguageCode(locale?.languageCode);
+    state = locale;
+  }
+}
+
+final localeProvider = NotifierProvider<LocaleNotifier, Locale?>(
+  LocaleNotifier.new,
+);
+
+/// Langue effective de l'app (code ISO court) : celle choisie, sinon celle du
+/// système si elle est traduite, sinon la langue de repli. Sert notamment à
+/// privilégier les éditions dans cette langue lors des recherches.
+final appLanguageProvider = Provider<String>((ref) {
+  final chosen = ref.watch(localeProvider);
+  if (chosen != null) return chosen.languageCode;
+  return basicLocaleListResolution(
+    WidgetsBinding.instance.platformDispatcher.locales,
+    AppLocalizations.supportedLocales,
+  ).languageCode;
+});

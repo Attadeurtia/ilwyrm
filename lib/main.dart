@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +10,7 @@ import 'data/cover_storage.dart';
 import 'data/database.dart';
 //import 'data/seed_data.dart';
 import 'data/settings_repository.dart';
+import 'l10n/l10n.dart';
 import 'ui/home/home_page.dart';
 import 'ui/theme_extensions.dart';
 
@@ -20,7 +20,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Initialisations indépendantes lancées en parallèle (démarrage plus court).
   final prefsFuture = SharedPreferences.getInstance();
-  await Future.wait([_loadEnv(), initializeDateFormatting('fr_FR', null)]);
+  // Formats de date de toutes les langues de l'app.
+  await Future.wait([_loadEnv(), initializeDateFormatting()]);
   final prefs = await prefsFuture;
 
   final db = AppDatabase();
@@ -51,21 +52,11 @@ Future<void> _loadEnv() async {
   }
 }
 
-class IlwyrmApp extends StatelessWidget {
+class IlwyrmApp extends ConsumerWidget {
   const IlwyrmApp({super.key});
 
   // Default seed color used as fallback
   static const Color _seedColor = Color(0xFF006978);
-
-  static const _pageTransitions = PageTransitionsTheme(
-    builders: {
-      TargetPlatform.android: ZoomPageTransitionsBuilder(),
-      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-      TargetPlatform.linux: ZoomPageTransitionsBuilder(),
-      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-      TargetPlatform.windows: ZoomPageTransitionsBuilder(),
-    },
-  );
 
   static ThemeData _theme(ColorScheme scheme, SemanticColors semantic) {
     final isDark = scheme.brightness == Brightness.dark;
@@ -76,12 +67,16 @@ class IlwyrmApp extends StatelessWidget {
         isDark ? ThemeData.dark().textTheme : null,
       ),
       extensions: [semantic],
-      pageTransitionsTheme: _pageTransitions,
+      // Transitions de page natives de chaque plateforme (défaut Flutter) :
+      // sur Android, celle d'Android 14+ qui suit le geste « retour prédictif »
+      // (et un fondu vers l'avant sinon) ; glissement horizontal sur iOS.
     );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Langue choisie dans les paramètres ; null = celle du téléphone.
+    final locale = ref.watch(localeProvider);
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         // Use dynamic color schemes if available (Android 12+)
@@ -106,22 +101,14 @@ class IlwyrmApp extends StatelessWidget {
         }
 
         return MaterialApp(
-          title: 'Ilwyrm',
+          onGenerateTitle: (context) => context.l10n.appTitle,
           debugShowCheckedModeBanner: false,
           themeMode: ThemeMode.system,
           theme: _theme(lightColorScheme, SemanticColors.light),
           darkTheme: _theme(darkColorScheme, SemanticColors.dark),
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('fr'), // French default
-            Locale('en'),
-            Locale('es'),
-            Locale('de'),
-          ],
+          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: const HomePage(),
         );
       },

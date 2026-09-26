@@ -1,0 +1,550 @@
+{
+  "@@locale": "fr",
+  "appTitle": "Ilwyrm",
+  "@appTitle": {
+    "description": "Nom de l’application"
+  },
+  "shelfToRead": "À lire",
+  "@shelfToRead": {
+    "description": "Statut de lecture"
+  },
+  "shelfReading": "En cours",
+  "shelfRead": "Lu",
+  "tabToRead": "À lire",
+  "@tabToRead": {
+    "description": "Onglet de l'accueil"
+  },
+  "tabReading": "En cours",
+  "tabRead": "Lus",
+  "actionEdit": "Modifier",
+  "actionDelete": "Supprimer",
+  "actionCancel": "Annuler",
+  "actionAdd": "Ajouter",
+  "actionClose": "Fermer",
+  "actionSave": "Enregistrer",
+  "actionChangeStatus": "Changer le statut",
+  "actionAddTags": "Ajouter des tags",
+  "actionAddToFavorites": "Ajouter aux favoris",
+  "selectedCount": "{count, plural, one{{count} sélectionné} other{{count} sélectionnés}}",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "checkAvailability": "Vérifier la disponibilité",
+  "settingsTitle": "Paramètres",
+  "sortLabel": "Trier",
+  "sortDateAdded": "Date d'ajout",
+  "sortTitle": "Titre",
+  "sortAuthor": "Auteur",
+  "changeViewTooltip": "Changer l'affichage",
+  "addLabel": "Ajouter",
+  "@addLabel": {
+    "description": "Bouton flottant d'ajout"
+  },
+  "addBookTooltip": "Ajouter un livre",
+  "scanLabel": "Scanner",
+  "searchLabel": "Recherche",
+  "booksUpdated": "{count, plural, one{{count} livre mis à jour} other{{count} livres mis à jour}}",
+  "@booksUpdated": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "booksAddedToFavorites": "{count, plural, one{{count} livre ajouté aux favoris} other{{count} livres ajoutés aux favoris}}",
+  "@booksAddedToFavorites": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tagsAdded": "Tags ajoutés !",
+  "deleteBooksTitle": "Supprimer les livres ?",
+  "deleteBooksMessage": "{count, plural, one{Voulez-vous vraiment supprimer ce livre ?} other{Voulez-vous vraiment supprimer ces {count} livres ?}}",
+  "@deleteBooksMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "booksDeleted": "{count, plural, one{{count} livre supprimé} other{{count} livres supprimés}}",
+  "@booksDeleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tagSearchOrCreateHint": "Rechercher ou créer un tag",
+  "tagCreateTooltip": "Créer le tag",
+  "noTagsAvailable": "Aucun tag disponible.",
+  "tagCreateError": "Erreur lors de la création du tag : {error}",
+  "@tagCreateError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "favoritesFilter": "Favoris",
+  "genericError": "Erreur : {error}",
+  "@genericError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "emptyShelf": "Aucun livre ici",
+  "unknownAuthor": "Auteur inconnu",
+  "localSearchPrompt": "Rechercher un livre…",
+  "noBookFound": "Aucun livre trouvé.",
+  "favoriteRemove": "Retirer des favoris",
+  "deleteBookTitle": "Supprimer le livre ?",
+  "deleteBookMessage": "Voulez-vous vraiment supprimer « {title} » ?",
+  "@deleteBookMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "coverHint": "Couverture",
+  "@coverHint": {
+    "description": "Indice sur un livre sans couverture"
+  },
+  "isbnCopied": "ISBN copié dans le presse-papier",
+  "isbnLabel": "ISBN :",
+  "unknownValue": "Inconnu",
+  "addedLabel": "Ajouté :",
+  "summaryTitle": "Résumé",
+  "summaryLoading": "Chargement du résumé…",
+  "noSummary": "Aucun résumé disponible.",
+  "tagsTitle": "Tags",
+  "manageTagsTitle": "Gérer les tags",
+  "otherBooksByAuthor": "Autres livres de l'auteur",
+  "noOtherBooks": "Aucun autre livre trouvé.",
+  "startReading": "Commencer",
+  "finishReading": "Terminé",
+  "startedAgo": "{days, plural, =0{Commencé aujourd'hui} =1{Commencé hier} other{Commencé il y a {days} jours}}",
+  "@startedAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "readingTimeTitle": "Temps de lecture",
+  "durationDays": "{days, plural, one{{days} jour} other{{days} jours}}",
+  "@durationDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "durationUnknown": "Durée inconnue",
+  "libraryAvailabilityTitle": "Disponibilité en bibliothèque",
+  "availableLabel": "Disponible",
+  "notAvailableLabel": "Non disponible",
+  "lastChecked": "Dernière vérification : {date}",
+  "@lastChecked": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshTooltip": "Actualiser",
+  "bibliographicInfo": "Informations bibliographiques",
+  "metaPublisher": "Éditeur",
+  "metaPublicationDate": "Date de publication",
+  "metaPageCount": "Nombre de pages",
+  "coverUpdated": "Couverture mise à jour",
+  "otherCovers": "Autres couvertures",
+  "bookAlreadyInLibrary": "Ce livre est déjà dans la bibliothèque.",
+  "bookAddedToList": "« {title} » ajouté à la liste !",
+  "@bookAddedToList": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "goToBook": "Y aller",
+  "searchHint": "Titre, auteur, ISBN…",
+  "addManually": "Ajouter manuellement",
+  "searchTabAll": "Tous",
+  "sourceError": "{source} : {error}",
+  "@sourceError": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "searchErrorTimeout": "Délai dépassé",
+  "searchErrorQuota": "Quota API dépassé",
+  "searchErrorForbidden": "Accès refusé",
+  "searchErrorUnavailable": "Indisponible",
+  "searching": "Recherche…",
+  "searchPrompt": "Entrez un titre, un auteur ou un ISBN.",
+  "noResultsSomeUnavailable": "Aucun résultat (certaines sources sont indisponibles).",
+  "noResults": "Aucun résultat trouvé.",
+  "alreadyInLibrary": "Déjà dans la bibliothèque",
+  "addToReadingList": "Ajouter à la liste de lecture",
+  "bookUpdated": "Livre modifié !",
+  "bookAdded": "Livre ajouté !",
+  "duplicateTitle": "Déjà dans la bibliothèque",
+  "duplicateMessage": "Ce livre semble déjà être dans ta bibliothèque.",
+  "addAnyway": "Ajouter quand même",
+  "openBook": "Voir la fiche",
+  "addCover": "Ajouter une couverture",
+  "editBookTitle": "Modifier le livre",
+  "addBookTitle": "Ajouter un livre",
+  "fieldTitle": "Titre",
+  "fieldTitleRequired": "Veuillez entrer un titre",
+  "fieldAuthor": "Auteur",
+  "fieldPublisher": "Éditeur",
+  "fieldPublicationYear": "Année de publication",
+  "fieldPageCount": "Nombre de pages",
+  "fieldStatus": "Statut",
+  "fieldStartDate": "Date de début",
+  "fieldFinishDate": "Date de fin",
+  "notSet": "Non défini",
+  "roleIgnore": "Ignorer",
+  "cameraPermissionDenied": "Permission caméra refusée — impossible de photographier.",
+  "noTextDetectedRetry": "Aucun texte détecté. Réessaie avec une photo plus nette.",
+  "ocrFailed": "Échec de la lecture : {error}",
+  "@ocrFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scanCoverTitle": "Scanner une couverture",
+  "scanCoverIntro": "Photographie la couverture : le titre, l'auteur et l'éditeur seront extraits automatiquement.",
+  "takePhoto": "Prendre une photo",
+  "pickFromGallery": "Choisir dans la galerie",
+  "assignLinesHint": "Attribue chaque ligne. Tu peux mettre plusieurs lignes dans le même champ (titre ou auteur sur plusieurs lignes).",
+  "noTextDetected": "Aucun texte détecté.",
+  "retake": "Reprendre",
+  "continueLabel": "Continuer",
+  "fieldLabelPrefix": "{label} : ",
+  "@fieldLabelPrefix": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "notAnIsbn": "« {code} » n'est pas un ISBN de livre : ignoré",
+  "@notAnIsbn": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "isbnAlreadyInLibrary": "« {isbn} » est déjà dans ta bibliothèque",
+  "@isbnAlreadyInLibrary": {
+    "placeholders": {
+      "isbn": {
+        "type": "String"
+      }
+    }
+  },
+  "bookScanned": "Livre scanné : {isbn}",
+  "@bookScanned": {
+    "placeholders": {
+      "isbn": {
+        "type": "String"
+      }
+    }
+  },
+  "scannerTitle": "Scanner des livres",
+  "scanCoverTooltip": "Sans code-barres ? Scanner la couverture",
+  "torchTooltip": "Lampe",
+  "switchCameraTooltip": "Changer de caméra",
+  "scannerHint": "Scanne le code-barres d'un livre.\nPas de code-barres ? Utilise l'icône couverture en haut.",
+  "duplicatesInLibrary": "{count} déjà dans ta bibliothèque",
+  "@duplicatesInLibrary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "finishScanning": "Terminer ({count})",
+  "@finishScanning": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addFailed": "Échec de l'ajout : {error}",
+  "@addFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "booksAddedCount": "{count, plural, one{{count} livre ajouté} other{{count} livres ajoutés}}",
+  "@booksAddedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "booksSkippedCount": "{count, plural, one{{count} déjà présent ignoré} other{{count} déjà présents ignorés}}",
+  "@booksSkippedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chooseSourceFor": "Choisir une source pour {isbn}",
+  "@chooseSourceFor": {
+    "placeholders": {
+      "isbn": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmAddTitle": "Confirmer l'ajout",
+  "addAllTooltip": "Tout ajouter",
+  "batchSearching": "Recherche sur OpenLibrary, la BnF, Inventaire et Google Books…",
+  "barcodeNotFound": "{count, plural, one{Impossible de trouver {count} livre par code-barres.} other{Impossible de trouver {count} livres par code-barres.}}",
+  "@barcodeNotFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "scanCoverButton": "Scanner la couverture",
+  "sourceTapToChange": "Source : {source} (touchez pour changer)",
+  "@sourceTapToChange": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceLabel": "Source : {source}",
+  "@sourceLabel": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "addBooksButton": "{count, plural, one{Ajouter {count} livre} other{Ajouter {count} livres}}",
+  "@addBooksButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "alreadyPresentCount": "{count, plural, one{{count} déjà présent} other{{count} déjà présents}}",
+  "@alreadyPresentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "statsTitle": "Statistiques",
+  "statsSubtitle": "Vos lectures en chiffres",
+  "languageTitle": "Langue",
+  "languageSystem": "Langue du système",
+  "noBooksToExport": "Aucun livre à exporter.",
+  "exportShareText": "Export de ma bibliothèque Ilwyrm",
+  "booksExported": "{count, plural, one{{count} livre exporté avec succès.} other{{count} livres exportés avec succès.}}",
+  "@booksExported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportError": "Erreur lors de l'exportation : {error}",
+  "@exportError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "booksImported": "{imported}/{total} livres importés.",
+  "@booksImported": {
+    "placeholders": {
+      "imported": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "rowsSkipped": "{count, plural, one{{count} ignoré.} other{{count} ignorés.}}",
+  "@rowsSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "detailsAction": "Détails",
+  "importError": "Erreur lors de l'importation : {error}",
+  "@importError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importErrorsTitle": "Erreurs d'importation",
+  "csvErrorEmpty": "Le fichier CSV est vide.",
+  "csvErrorColumns": "Ligne {line} : nombre de colonnes incorrect.",
+  "@csvErrorColumns": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      }
+    }
+  },
+  "csvErrorRow": "Ligne {line} ({title}) : {error}",
+  "@csvErrorRow": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "csvErrorUnreadable": "Import impossible : {error}",
+  "@csvErrorUnreadable": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sectionData": "Données",
+  "importCsvTitle": "Importer un fichier CSV",
+  "importCsvSubtitle": "Importez vos livres et tags depuis un fichier CSV",
+  "exportCsvTitle": "Exporter un fichier CSV",
+  "exportCsvSubtitle": "Exportez vos livres et tags pour les transférer",
+  "aboutTitle": "À propos",
+  "aboutDescription": "Ilwyrm est une application de gestion de bibliothèque personnelle open-source développée par {author}.",
+  "@aboutDescription": {
+    "placeholders": {
+      "author": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceCodeOnGithub": "Code source disponible sur GitHub : ",
+  "importOptionsTitle": "Options d'importation",
+  "importOptionsMessage": "Choisissez les options pour l'importation de votre fichier CSV.",
+  "fetchCoversTitle": "Rechercher les couvertures",
+  "fetchCoversSubtitle": "Recherche en ligne les couvertures manquantes. Plus lent.",
+  "chooseFile": "Choisir le fichier",
+  "importInProgress": "Importation en cours…",
+  "importProgress": "{current} / {total} livres",
+  "@importProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "readingFile": "Lecture du fichier…",
+  "sectionExperimental": "Fonctionnalités expérimentales",
+  "libraryAvailabilitySetting": "Vérifier la disponibilité en bibliothèque",
+  "experimentalWarning": "Expérimental : Peut être instable ou lent.",
+  "apiUrlTitle": "URL de l'API",
+  "notConfigured": "Non configurée",
+  "configureApiUrl": "Configurer l'URL de l'API",
+  "urlLabel": "URL",
+  "statsLibrarySection": "Ma bibliothèque",
+  "statsTotalBooks": "Livres",
+  "@statsTotalBooks": {
+    "description": "Libellé de la tuile du nombre total de livres"
+  },
+  "statsReadingSection": "Lectures",
+  "statsHeroLabel": "{count, plural, one{livre lu en {year}} other{livres lus en {year}}}",
+  "@statsHeroLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "statsDeltaVsYear": "{delta} par rapport à {year}",
+  "@statsDeltaVsYear": {
+    "placeholders": {
+      "delta": {
+        "type": "String"
+      },
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "statsSameAsYear": "Autant qu'en {year}",
+  "@statsSameAsYear": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "statsPagesRead": "Pages lues",
+  "statsAverageDuration": "Durée moyenne",
+  "statsPerMonthTitle": "Livres lus par mois",
+  "statsPerYearTitle": "Livres lus par année",
+  "statsTopAuthorsTitle": "Auteurs les plus lus",
+  "statsNoReadingYet": "Aucune lecture terminée pour l'instant : termine un livre pour voir tes statistiques de lecture.",
+  "statsBooksCount": "{count, plural, =0{Aucun livre} one{{count} livre} other{{count} livres}}",
+  "@statsBooksCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "statsShowTable": "Afficher en tableau",
+  "statsShowChart": "Afficher le graphique",
+  "statsMonthColumn": "Mois",
+  "statsYearColumn": "Année",
+  "statsBooksColumn": "Livres",
+  "statsChartHint": "Touchez une barre pour voir sa valeur."
+}

@@ -8,6 +8,7 @@ import '../../data/book_search_api.dart';
 import '../../data/book_search_service.dart';
 import '../../data/database.dart';
 import '../../data/library_index.dart';
+import '../../l10n/l10n.dart';
 import '../books/bookshelf_detail_page.dart';
 import 'edit_book_page.dart';
 
@@ -28,7 +29,7 @@ class SearchBookPage extends ConsumerStatefulWidget {
 class _SearchBookPageState extends ConsumerState<SearchBookPage>
     with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
-  final BookSearchService _service = BookSearchService();
+  late final BookSearchService _service = ref.read(bookSearchServiceProvider);
   late TabController _tabController;
   Timer? _debounce;
   Timer? _snackTimer;
@@ -136,17 +137,14 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
     final existingId = buildLibraryIndex(await database.getAllBooks()).findId(book);
     if (!mounted) return;
     if (existingId != null) {
-      _showSnack(
-        'Ce livre est déjà dans la bibliothèque.',
-        goToBookId: existingId,
-      );
+      _showSnack(context.l10n.bookAlreadyInLibrary, goToBookId: existingId);
       return;
     }
 
     final id =
         await database.into(database.books).insert(book.toBooksCompanion());
     if (!mounted) return;
-    _showSnack('« ${book.title} » ajouté à la liste !', goToBookId: id);
+    _showSnack(context.l10n.bookAddedToList(book.title), goToBookId: id);
   }
 
   /// Affiche un message éphémère (auto-masqué après quelques secondes) avec un
@@ -161,7 +159,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
         content: Text(message),
         duration: duration,
         action: SnackBarAction(
-          label: 'Y aller',
+          label: context.l10n.goToBook,
           onPressed: () {
             Navigator.push(
               context,
@@ -188,8 +186,8 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
           controller: _controller,
           autofocus: true,
           textInputAction: TextInputAction.search,
-          decoration: const InputDecoration(
-            hintText: 'Titre, auteur, ISBN...',
+          decoration: InputDecoration(
+            hintText: context.l10n.searchHint,
             border: InputBorder.none,
           ),
           onChanged: _onChanged,
@@ -208,7 +206,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
           ),
           IconButton(
             icon: const Icon(Icons.add),
-            tooltip: 'Ajouter manuellement',
+            tooltip: context.l10n.addManually,
             onPressed: () {
               Navigator.push(
                 context,
@@ -231,12 +229,12 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
                 controller: _tabController,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                tabs: const [
-                  Tab(text: 'Tous'),
-                  Tab(text: 'OpenLibrary'),
-                  Tab(text: 'BnF'),
-                  Tab(text: 'Inventaire'),
-                  Tab(text: 'Google Books'),
+                tabs: [
+                  Tab(text: context.l10n.searchTabAll),
+                  const Tab(text: 'OpenLibrary'),
+                  const Tab(text: 'BnF'),
+                  const Tab(text: 'Inventaire'),
+                  const Tab(text: 'Google Books'),
                 ],
               ),
             ],
@@ -281,7 +279,10 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('$source : $error', textAlign: TextAlign.center),
+          child: Text(
+            context.l10n.sourceError(source, _errorLabel(error)),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
@@ -293,16 +294,23 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
     );
   }
 
+  String _errorLabel(SearchError error) => switch (error) {
+    SearchError.timeout => context.l10n.searchErrorTimeout,
+    SearchError.quotaExceeded => context.l10n.searchErrorQuota,
+    SearchError.accessDenied => context.l10n.searchErrorForbidden,
+    SearchError.unavailable => context.l10n.searchErrorUnavailable,
+  };
+
   Widget _emptyState({bool anyError = false}) {
     final String message;
     if (_loading) {
-      message = 'Recherche…';
+      message = context.l10n.searching;
     } else if (_lastSubmitted.isEmpty) {
-      message = 'Entrez un titre, un auteur ou un ISBN.';
+      message = context.l10n.searchPrompt;
     } else if (anyError) {
-      message = 'Aucun résultat (certaines sources sont indisponibles).';
+      message = context.l10n.noResultsSomeUnavailable;
     } else {
-      message = 'Aucun résultat trouvé.';
+      message = context.l10n.noResults;
     }
     return Center(
       child: Padding(
@@ -360,7 +368,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
       isThreeLine: showChips,
       trailing: inLibrary
           ? Tooltip(
-              message: 'Déjà dans la bibliothèque',
+              message: context.l10n.alreadyInLibrary,
               child: Icon(
                 Icons.check_circle,
                 color: Theme.of(context).colorScheme.primary,
@@ -368,7 +376,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
             )
           : IconButton(
               icon: const Icon(Icons.add),
-              tooltip: 'Ajouter à la liste de lecture',
+              tooltip: context.l10n.addToReadingList,
               onPressed: () => _quickAddBook(book),
             ),
       onTap: () {
@@ -406,7 +414,7 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
         children: [
           if (inLibrary)
             _badge(
-              'Déjà dans la bibliothèque',
+              context.l10n.alreadyInLibrary,
               background: scheme.primaryContainer,
               foreground: scheme.onPrimaryContainer,
               icon: Icons.check,
