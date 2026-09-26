@@ -4,15 +4,14 @@ abstract class BookSearchApi {
 
 /// Nettoie un ISBN : retire tirets/espaces et met un éventuel « X » final en
 /// majuscule (chiffre de contrôle valide d'un ISBN-10).
-String cleanIsbn(String raw) =>
-    raw.replaceAll(RegExp(r'[\s-]'), '').toUpperCase();
+String cleanIsbn(String raw) => raw.replaceAll(_isbnSeparators, '').toUpperCase();
 
 /// Détecte si la chaîne est un ISBN-10 (le dernier caractère peut être « X »)
 /// ou un ISBN-13.
-bool isIsbn(String query) {
-  final s = cleanIsbn(query);
-  return RegExp(r'^(\d{9}[\dX]|\d{13})$').hasMatch(s);
-}
+bool isIsbn(String query) => _isbnPattern.hasMatch(cleanIsbn(query));
+
+final RegExp _isbnSeparators = RegExp(r'[\s-]');
+final RegExp _isbnPattern = RegExp(r'^(\d{9}[\dX]|\d{13})$');
 
 /// Normalise un code/nom de langue (ISO-639-1/2, MARC, libellé FR/EN) vers un
 /// code court minuscule ('fr', 'en', …) pour comparer les éditions entre sources.
@@ -28,7 +27,7 @@ String? normalizeLanguage(String? raw) {
     'ita': 'it', 'italien': 'it',
     'jpn': 'ja', 'japonais': 'ja',
   };
-  return map[s] ?? (s.length == 2 ? s : s);
+  return map[s] ?? s;
 }
 
 class ExternalBook {
@@ -47,7 +46,14 @@ class ExternalBook {
   /// Toutes les sources ayant produit cette fiche (après fusion des doublons).
   final Set<String> sources;
 
+  /// Résumé du livre (quatrième de couverture), enregistré avec le livre.
   final String? description;
+
+  /// Courte description d'identification (ex. « roman de Frank Herbert »,
+  /// fournie par Inventaire/Wikidata) : aide à reconnaître un résultat sans
+  /// auteur, mais ce n'est PAS un résumé — elle n'est jamais enregistrée.
+  final String? shortDescription;
+
   final String? wikidata;
   final String? inventaireId;
 
@@ -77,6 +83,7 @@ class ExternalBook {
     required this.source,
     Set<String>? sources,
     this.description,
+    this.shortDescription,
     this.wikidata,
     this.inventaireId,
     this.openlibraryKey,
@@ -115,6 +122,7 @@ class ExternalBook {
     String? source,
     Set<String>? sources,
     String? description,
+    String? shortDescription,
     String? wikidata,
     String? inventaireId,
     String? openlibraryKey,
@@ -134,6 +142,7 @@ class ExternalBook {
       source: source ?? this.source,
       sources: sources ?? this.sources,
       description: description ?? this.description,
+      shortDescription: shortDescription ?? this.shortDescription,
       wikidata: wikidata ?? this.wikidata,
       inventaireId: inventaireId ?? this.inventaireId,
       openlibraryKey: openlibraryKey ?? this.openlibraryKey,

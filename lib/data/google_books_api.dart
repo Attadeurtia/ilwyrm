@@ -2,8 +2,13 @@ import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'book_search_api.dart';
+import 'http_client.dart';
 
 class GoogleBooksApi implements BookSearchApi {
+  GoogleBooksApi({http.Client? client}) : _client = client ?? sharedHttpClient;
+
+  final http.Client _client;
+
   static const String _baseUrl = 'https://www.googleapis.com/books/v1';
 
   @override
@@ -21,7 +26,7 @@ class GoogleBooksApi implements BookSearchApi {
       '&maxResults=20&printType=books&country=FR&orderBy=relevance$keyParam',
     );
 
-    final response = await http.get(url);
+    final response = await _client.get(url);
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -41,14 +46,20 @@ class GoogleBooksApi implements BookSearchApi {
             ?.where((e) => e['type'] == 'ISBN_13' || e['type'] == 'ISBN_10')
             .map((e) => e['identifier'].toString())
             .toList();
+        final publishedDate = volumeInfo['publishedDate'] as String?;
+        final thumbnail = imageLinks?['thumbnail'] as String?;
 
         return ExternalBook(
           key: json['id'],
           title: volumeInfo['title'] ?? 'Unknown Title',
           authorText: authors?.join(', ') ?? 'Unknown Author',
-          coverUrl: imageLinks?['thumbnail']?.replaceAll('http://', 'https://'),
-          firstPublishYear: volumeInfo['publishedDate'] != null
-              ? int.tryParse(volumeInfo['publishedDate'].substring(0, 4))
+          // HTTPS obligatoire, et sans l'effet « coin de page corné » (edge=curl)
+          // que Google ajoute aux vignettes.
+          coverUrl: thumbnail
+              ?.replaceAll('http://', 'https://')
+              .replaceAll('&edge=curl', ''),
+          firstPublishYear: (publishedDate != null && publishedDate.length >= 4)
+              ? int.tryParse(publishedDate.substring(0, 4))
               : null,
           isbns: isbns,
           numberOfPages: volumeInfo['pageCount'],

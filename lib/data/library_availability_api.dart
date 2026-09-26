@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'http_client.dart';
 import 'settings_repository.dart';
 
 class LibraryAvailabilityApi {
@@ -28,7 +28,7 @@ class LibraryAvailabilityApi {
 
     try {
       final response =
-          await http.get(uri).timeout(const Duration(seconds: 8));
+          await sharedHttpClient.get(uri).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);

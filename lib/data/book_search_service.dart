@@ -6,6 +6,7 @@ import 'book_search_api.dart';
 import 'google_books_api.dart';
 import 'inventaire_api.dart';
 import 'open_library_api.dart';
+import 'text_normalize.dart';
 
 /// Libellés d'onglets exposés à l'UI.
 const kOpenLibrary = 'OpenLibrary';
@@ -104,8 +105,7 @@ class BookSearchService {
       try {
         final books = await entry.value.searchBooks(q).timeout(_timeout);
         // Reclasse aussi chaque onglet de source avec notre scorer.
-        books.sort((a, b) => _score(b, trimmed).compareTo(_score(a, trimmed)));
-        bySource[label] = books;
+        bySource[label] = _rankByScore(books, trimmed);
       } on TimeoutException {
         errors[label] = 'Délai dépassé';
       } catch (e) {
@@ -188,8 +188,22 @@ class BookSearchService {
       }
     }
 
-    clusters.sort((a, b) => _score(b, query).compareTo(_score(a, query)));
-    return clusters;
+    return _rankByScore(clusters, query);
+  }
+
+  /// Trie par score décroissant. Chaque score est calculé UNE fois (et non à
+  /// chaque comparaison du tri) ; à score égal, l'ordre d'entrée est conservé
+  /// (priorité de source), pour un classement stable.
+  List<ExternalBook> _rankByScore(List<ExternalBook> books, String query) {
+    final q = _QueryTerms(_scoreTitle(query));
+    final scored = [
+      for (var i = 0; i < books.length; i++) (books[i], _score(books[i], q), i),
+    ];
+    scored.sort((a, b) {
+      final c = b.$2.compareTo(a.$2);
+      return c != 0 ? c : a.$3.compareTo(b.$3);
+    });
+    return [for (final e in scored) e.$1];
   }
 
   List<String> _isbnKeys(ExternalBook b) => (b.isbns ?? const [])
@@ -223,6 +237,7 @@ class BookSearchService {
       publisher: base.publisher ?? other.publisher,
       isbns: isbns.isEmpty ? null : isbns,
       description: base.description ?? other.description,
+      shortDescription: base.shortDescription ?? other.shortDescription,
       wikidata: base.wikidata ?? other.wikidata,
       inventaireId: base.inventaireId ?? other.inventaireId,
       openlibraryKey: base.openlibraryKey ?? other.openlibraryKey,
@@ -247,12 +262,12 @@ class BookSearchService {
 
   int _rank(ExternalBook b) => _sourceRank[b.source] ?? 0;
 
-  double _score(ExternalBook b, String query) {
-    final q = _scoreTitle(query);
+  double _score(ExternalBook b, _QueryTerms query) {
+    final q = query.text;
     final title = _scoreTitle(b.title);
     final combined = '$title ${_norm(b.authorText)}'.trim();
 
-    double s = _coverage(q, combined) * 0.6 + _coverage(q, title) * 0.4;
+    double s = _coverage(query, combined) * 0.6 + _coverage(query, title) * 0.4;
 
     if (title == q) {
       s += 0.5;
@@ -297,11 +312,11 @@ class BookSearchService {
   /// Couverture : fraction des tokens de la requête présents dans [text]
   /// (0 → 1). Asymétrique, pour ne pas pénaliser les tokens d'auteur/titre
   /// supplémentaires (ex. un auteur en graphie latine « ci xin liu »).
-  double _coverage(String query, String text) {
-    final q = query.split(' ').where((e) => e.isNotEmpty).toSet();
+  double _coverage(_QueryTerms query, String text) {
+    final q = query.tokens;
     if (q.isEmpty) return 0;
-    final t = text.split(' ').where((e) => e.isNotEmpty).toSet();
-    return q.intersection(t).length / q.length;
+    final t = text.split(' ').toSet();
+    return q.where(t.contains).length / q.length;
   }
 
   bool _isKnownAuthor(String a) {
@@ -316,24 +331,16 @@ class BookSearchService {
   bool _isKnownLatinAuthor(String a) =>
       _isKnownAuthor(a) && !_nonLatin.hasMatch(a);
 
-  static const Map<String, String> _accents = {
-    'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a', 'ã': 'a', 'å': 'a',
-    'ç': 'c',
-    'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-    'ì': 'i', 'î': 'i', 'ï': 'i', 'í': 'i',
-    'ò': 'o', 'ô': 'o', 'ö': 'o', 'ó': 'o', 'õ': 'o',
-    'ù': 'u', 'û': 'u', 'ü': 'u', 'ú': 'u',
-    'ñ': 'n', 'ÿ': 'y', 'œ': 'oe', 'æ': 'ae', 'ß': 'ss',
-  };
-
   /// Normalise pour comparaison : minuscules, sans accents, sans ponctuation.
-  String _norm(String s) {
-    var out = s.toLowerCase();
-    _accents.forEach((k, v) => out = out.replaceAll(k, v));
-    out = out.replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
-    out = out.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return out;
-  }
+  String _norm(String s) => normalizeText(s);
+
+  static final RegExp _genreWords = RegExp(
+      r'\b(roman|recit|recits|nouvelle|nouvelles|essai|integrale|edition)\b');
+  static final RegExp _tomeNumber = RegExp(r'\btome\s*\d+\b');
+  static final RegExp _volumeNumber = RegExp(r'\bvol(ume)?\s*\d+\b');
+  static final RegExp _shortTomeNumber = RegExp(r'\bt\s*\d+\b');
+  static final RegExp _trailingNumber = RegExp(r'\s+\d+\s*$');
+  static final RegExp _spaces = RegExp(r'\s+');
 
   /// Normalise un titre pour le SCORING uniquement (pas pour le dédoublonnage) :
   /// retire les marqueurs de genre ajoutés par les catalogues (« roman »,
@@ -341,13 +348,22 @@ class BookSearchService {
   /// 1 » corresponde à la requête « Titre ».
   String _scoreTitle(String s) {
     var t = _norm(s);
-    t = t.replaceAll(
-        RegExp(r'\b(roman|recit|recits|nouvelle|nouvelles|essai|integrale|edition)\b'), ' ');
-    t = t.replaceAll(RegExp(r'\btome\s*\d+\b'), ' ');
-    t = t.replaceAll(RegExp(r'\bvol(ume)?\s*\d+\b'), ' ');
-    t = t.replaceAll(RegExp(r'\bt\s*\d+\b'), ' ');
-    t = t.replaceAll(RegExp(r'\s+\d+\s*$'), ' '); // numéro de tome isolé en fin
-    t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
+    t = t.replaceAll(_genreWords, ' ');
+    t = t.replaceAll(_tomeNumber, ' ');
+    t = t.replaceAll(_volumeNumber, ' ');
+    t = t.replaceAll(_shortTomeNumber, ' ');
+    t = t.replaceAll(_trailingNumber, ' '); // numéro de tome isolé en fin
+    t = t.replaceAll(_spaces, ' ').trim();
     return t;
   }
+}
+
+/// Requête normalisée une seule fois pour tout un classement.
+class _QueryTerms {
+  _QueryTerms(this.text)
+      : tokens = text.split(' ').where((e) => e.isNotEmpty).toSet();
+
+  /// Titre de requête normalisé (voir `_scoreTitle`).
+  final String text;
+  final Set<String> tokens;
 }
