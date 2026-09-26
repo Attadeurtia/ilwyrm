@@ -3,11 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../data/book_search_api.dart';
+import '../../data/cover_storage.dart';
 import 'edit_book_page.dart';
 
 /// Rôle attribué à une ligne de texte détectée sur la couverture.
@@ -80,7 +79,7 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
 
       // Les fichiers d'image_picker sont temporaires : on copie l'image dans un
       // emplacement persistant pour pouvoir la garder comme couverture.
-      final savedPath = await _persist(picked.path);
+      final savedPath = await persistCoverImage(picked.path);
       final lines = await _runOcr(savedPath);
 
       if (!mounted) return;
@@ -101,17 +100,6 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
         _error = 'Échec de la lecture : $e';
       });
     }
-  }
-
-  Future<String> _persist(String tempPath) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final coversDir = Directory(p.join(dir.path, 'covers'));
-    await coversDir.create(recursive: true);
-    final ext = p.extension(tempPath).isNotEmpty ? p.extension(tempPath) : '.jpg';
-    final dest = p.join(
-        coversDir.path, 'cover_${DateTime.now().millisecondsSinceEpoch}$ext');
-    await File(tempPath).copy(dest);
-    return dest;
   }
 
   Future<List<_Line>> _runOcr(String path) async {
@@ -189,6 +177,8 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
   }
 
   void _reset() {
+    // La photo reprise ne servira pas : on ne la laisse pas traîner.
+    deleteLocalCover(_imagePath);
     setState(() {
       _imagePath = null;
       _lines = [];
@@ -262,7 +252,10 @@ class _ScanCoverPageState extends State<ScanCoverPage> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.file(File(_imagePath!),
-                    width: 90, height: 135, fit: BoxFit.cover),
+                    width: 90,
+                    height: 135,
+                    cacheHeight: 405, // aperçu : inutile de décoder la photo entière
+                    fit: BoxFit.cover),
               ),
               const SizedBox(width: 16),
               Expanded(

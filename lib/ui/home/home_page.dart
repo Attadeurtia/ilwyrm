@@ -213,7 +213,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     children: [
                       Icon(Icons.swap_vert),
                       SizedBox(width: 8),
-                      Text('Trie'),
+                      Text('Trier'),
                     ],
                   ),
                   onSelected: (SortOption result) {
@@ -333,17 +333,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildBookList(int index) {
-    final selectedTagIds = ref.watch(selectedTagProvider);
-    switch (index) {
-      case 0:
-        return BookListView(status: 'to_read', tagIds: selectedTagIds);
-      case 1:
-        return BookListView(status: 'reading', tagIds: selectedTagIds);
-      case 2:
-        return BookListView(status: 'read', tagIds: selectedTagIds);
-      default:
-        return const SizedBox();
-    }
+    // Une clé par onglet : chaque liste garde son propre état (défilement,
+    // animations) au lieu de réutiliser celui de l'onglet précédent.
+    const shelves = ['to_read', 'reading', 'read'];
+    final shelf = shelves[index];
+    return BookListView(key: ValueKey(shelf), status: shelf);
   }
 
   Future<void> _showStatusDialog(

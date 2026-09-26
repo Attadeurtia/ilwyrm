@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'book_search_api.dart';
+import 'http_client.dart';
 
 /// Catalogue général de la Bibliothèque nationale de France via l'API SRU
 /// (Search/Retrieve via URL), réponses en Dublin Core.
@@ -7,6 +8,10 @@ import 'book_search_api.dart';
 /// Excellente couverture des livres publiés en France, avec des auteurs en
 /// graphie latine et des ISBN fiables.
 class BnfApi implements BookSearchApi {
+  BnfApi({http.Client? client}) : _client = client ?? sharedHttpClient;
+
+  final http.Client _client;
+
   static const String _baseUrl = 'https://catalogue.bnf.fr/api/SRU';
   static const Map<String, String> _headers = {
     'User-Agent': 'Ilwyrm/1.0 (contact@example.com)',
@@ -24,18 +29,27 @@ class BnfApi implements BookSearchApi {
       '&recordSchema=dublincore&maximumRecords=20',
     );
 
-    final response = await http.get(url, headers: _headers);
+    final response = await _client.get(url, headers: _headers);
     if (response.statusCode != 200) {
       throw Exception('BnF HTTP ${response.statusCode}');
     }
     return _parse(response.body);
   }
 
+  static final RegExp _recordRe = RegExp(r'<srw:record>([\s\S]*?)</srw:record>');
+  static final RegExp _yearRe = RegExp(r'\d{4}');
+  static final RegExp _isbnRe = RegExp(r'ISBN\s*([0-9Xx\-]{10,17})');
+  static final RegExp _arkRe = RegExp(r'(cb\w+)');
+
+  /// Expressions compilées une fois par balise (réutilisées pour chaque notice).
+  static final Map<String, RegExp> _tagRes = {};
+  static RegExp _tagRe(String tag) => _tagRes.putIfAbsent(
+      tag, () => RegExp('<$tag[^>]*>([\\s\\S]*?)</$tag>'));
+
   List<ExternalBook> _parse(String xml) {
     final books = <ExternalBook>[];
-    final recordRe = RegExp(r'<srw:record>([\s\S]*?)</srw:record>');
 
-    for (final m in recordRe.allMatches(xml)) {
+    for (final m in _recordRe.allMatches(xml)) {
       final rec = m.group(1)!;
       final data = _between(rec, '<srw:recordData>', '</srw:recordData>') ?? rec;
 
@@ -50,7 +64,7 @@ class BnfApi implements BookSearchApi {
       int? year;
       final dateRaw = _firstTag(data, 'dc:date');
       if (dateRaw != null) {
-        final ym = RegExp(r'\d{4}').firstMatch(dateRaw);
+        final ym = _yearRe.firstMatch(dateRaw);
         if (ym != null) year = int.tryParse(ym.group(0)!);
       }
 
@@ -64,7 +78,7 @@ class BnfApi implements BookSearchApi {
 
       String? isbn;
       for (final id in _allTags(data, 'dc:identifier')) {
-        final mm = RegExp(r'ISBN\s*([0-9Xx\-]{10,17})').firstMatch(id);
+        final mm = _isbnRe.firstMatch(id);
         if (mm != null) {
           isbn = cleanIsbn(mm.group(1)!);
           break;
@@ -74,7 +88,7 @@ class BnfApi implements BookSearchApi {
       String? bnfId;
       final ark = _firstTag(rec, 'srw:recordIdentifier') ??
           _firstTag(data, 'dc:identifier');
-      final am = RegExp(r'(cb\w+)').firstMatch(ark ?? '');
+      final am = _arkRe.firstMatch(ark ?? '');
       if (am != null) bnfId = am.group(1);
 
       books.add(ExternalBook(
@@ -128,15 +142,11 @@ class BnfApi implements BookSearchApi {
     return s.substring(i + start.length, j);
   }
 
-  String? _firstTag(String s, String tag) {
-    final m = RegExp('<$tag[^>]*>([\\s\\S]*?)</$tag>').firstMatch(s);
-    return m?.group(1)?.trim();
-  }
+  String? _firstTag(String s, String tag) =>
+      _tagRe(tag).firstMatch(s)?.group(1)?.trim();
 
-  List<String> _allTags(String s, String tag) => RegExp('<$tag[^>]*>([\\s\\S]*?)</$tag>')
-      .allMatches(s)
-      .map((m) => m.group(1)!.trim())
-      .toList();
+  List<String> _allTags(String s, String tag) =>
+      _tagRe(tag).allMatches(s).map((m) => m.group(1)!.trim()).toList();
 
   String _unescape(String s) {
     var out = s

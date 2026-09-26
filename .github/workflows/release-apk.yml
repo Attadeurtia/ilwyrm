@@ -44,16 +44,30 @@ jobs:
         run: |
           echo "GOOGLE_BOOKS_API_KEY=${{ secrets.GOOGLE_BOOKS_API_KEY }}" > .env
 
-      - name: Build Release APK
-        run: flutter build apk --release
+      # Un APK par architecture : un APK universel embarque les bibliothèques
+      # natives (Flutter, ML Kit, SQLite) des trois architectures, soit ~113 Mo,
+      # alors qu'un téléphone n'en utilise qu'une. Même versionCode pour les deux
+      # (un appareil n'installe que le sien).
+      - name: Build Release APKs
+        run: |
+          mkdir -p dist
+          # 64 bits : la quasi-totalité des téléphones. Garde le nom historique.
+          flutter build apk --release --target-platform android-arm64
+          cp build/app/outputs/flutter-apk/app-release.apk dist/app-release.apk
+          # 32 bits : anciens téléphones uniquement.
+          flutter build apk --release --target-platform android-arm
+          cp build/app/outputs/flutter-apk/app-release.apk dist/app-release-armeabi-v7a.apk
 
-      # ✅ Une seule étape : crée la release ET upload l'APK
+      # ✅ Une seule étape : crée la release ET upload les APK
       - name: Release & Upload APK
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: Release ${{ github.event.inputs.tag || github.ref_name }}
-          files: build/app/outputs/flutter-apk/app-release.apk
+          body: |
+            **app-release.apk** : pour la quasi-totalité des téléphones (64 bits).
+            **app-release-armeabi-v7a.apk** : uniquement pour les anciens téléphones 32 bits.
+          files: dist/*.apk
           overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

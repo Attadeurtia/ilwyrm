@@ -1,8 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'book_search_api.dart';
+import 'http_client.dart';
 
 class OpenLibraryApi implements BookSearchApi {
+  OpenLibraryApi({http.Client? client}) : _client = client ?? sharedHttpClient;
+
+  final http.Client _client;
+
   static const String _baseUrl = 'https://openlibrary.org';
 
   @override
@@ -28,7 +33,7 @@ class OpenLibraryApi implements BookSearchApi {
     final workKey = await _resolveWorkKey(openlibraryKey, isbn);
     if (workKey == null) return const [];
     try {
-      final res = await http
+      final res = await _client
           .get(Uri.parse('$_baseUrl$workKey/editions.json?limit=$limit'));
       if (res.statusCode != 200) return const [];
       final data = json.decode(res.body);
@@ -69,7 +74,7 @@ class OpenLibraryApi implements BookSearchApi {
 
   Future<String?> _workFromEdition(String editionPath) async {
     try {
-      final res = await http.get(Uri.parse('$_baseUrl$editionPath.json'));
+      final res = await _client.get(Uri.parse('$_baseUrl$editionPath.json'));
       if (res.statusCode != 200) return null;
       final data = json.decode(res.body);
       final works = data['works'] as List?;
@@ -84,7 +89,7 @@ class OpenLibraryApi implements BookSearchApi {
   Future<List<ExternalBook>> _searchByIsbn(String isbn) async {
     final clean = cleanIsbn(isbn);
     final url = Uri.parse('$_baseUrl/isbn/$clean.json');
-    final response = await http.get(url);
+    final response = await _client.get(url);
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -97,7 +102,7 @@ class OpenLibraryApi implements BookSearchApi {
         if (authorKey != null) {
           try {
             final authorRes =
-                await http.get(Uri.parse('$_baseUrl$authorKey.json'));
+                await _client.get(Uri.parse('$_baseUrl$authorKey.json'));
             if (authorRes.statusCode == 200) {
               final authorData = json.decode(authorRes.body);
               authorText = authorData['name'] ?? authorText;
@@ -167,7 +172,7 @@ class OpenLibraryApi implements BookSearchApi {
       '$_baseUrl/search.json?q=${Uri.encodeComponent(query)}&fields=key,title,author_name,cover_i,first_publish_year,isbn,number_of_pages_median,publisher,language&limit=20',
     );
 
-    final response = await http.get(url);
+    final response = await _client.get(url);
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);

@@ -28,6 +28,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
 
   final Set<String> _failedIsbns = {};
   bool _isLoading = true;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -36,24 +37,12 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
   }
 
   Future<void> _fetchBooks() async {
-    for (final isbn in widget.isbns) {
-      if (_candidates.containsKey(isbn)) continue;
-
-      try {
-        // Interroge les 3 sources, fusionne et reclasse : le meilleur candidat
-        // (métadonnées les plus complètes, source la plus fiable) arrive en tête.
-        final agg = await _service.search(isbn);
-        final merged = agg.merged;
-
-        if (merged.isNotEmpty) {
-          _candidates[isbn] = merged;
-          _selectedBooks[isbn] = merged.first;
-        } else {
-          _failedIsbns.add(isbn);
-        }
-      } catch (e) {
-        _failedIsbns.add(isbn);
-      }
+    // Quelques ISBN à la fois : bien plus rapide qu'un par un pour un lot, sans
+    // saturer les API (chaque recherche interroge déjà 4 sources).
+    final isbns = widget.isbns.toSet().toList();
+    const concurrency = 3;
+    for (var i = 0; i < isbns.length; i += concurrency) {
+      await Future.wait(isbns.skip(i).take(concurrency).map(_fetchIsbn));
     }
     if (mounted) {
       setState(() {
@@ -62,21 +51,59 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
     }
   }
 
+  Future<void> _fetchIsbn(String isbn) async {
+    try {
+      // Interroge les sources, fusionne et reclasse : le meilleur candidat
+      // (métadonnées les plus complètes, source la plus fiable) arrive en tête.
+      final merged = (await _service.search(isbn)).merged;
+      if (merged.isNotEmpty) {
+        _candidates[isbn] = merged;
+        _selectedBooks[isbn] = merged.first;
+      } else {
+        _failedIsbns.add(isbn);
+      }
+    } catch (e) {
+      _failedIsbns.add(isbn);
+    }
+  }
+
   Future<void> _addAll() async {
+    // Un seul ajout à la fois (double appui sur le bouton = doublons).
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+
     final database = ref.read(databaseProvider);
-    // Contrôle anti-doublon faisant autorité (lecture fraîche de la base) : on
-    // n'insère pas un livre déjà présent.
-    final index = buildLibraryIndex(await database.getAllBooks());
     int added = 0;
     int skipped = 0;
 
-    for (final book in _selectedBooks.values) {
-      if (index.contains(book)) {
-        skipped++;
-        continue;
+    try {
+      await database.transaction(() async {
+        // Contrôle anti-doublon faisant autorité (lecture fraîche de la base) :
+        // on n'insère pas un livre déjà présent. L'index est enrichi au fil des
+        // ajouts pour écarter aussi un livre scanné deux fois dans le lot (ex.
+        // son ISBN-10 puis son ISBN-13).
+        var index = buildLibraryIndex(await database.getAllBooks());
+        for (final book in _booksInScanOrder().map((e) => e.value)) {
+          if (index.contains(book)) {
+            skipped++;
+            continue;
+          }
+          final id = await database
+              .into(database.books)
+              .insert(book.toBooksCompanion());
+          index = index.extendedWith(book, id);
+          added++;
+        }
+      });
+    } catch (e) {
+      // Transaction annulée : rien n'a été ajouté, on peut réessayer.
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Échec de l\'ajout : $e')),
+        );
       }
-      await database.into(database.books).insert(book.toBooksCompanion());
-      added++;
+      return;
     }
 
     if (mounted) {
@@ -89,6 +116,13 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
+
+  /// Livres retenus, dans l'ordre du scan (les recherches parallèles se
+  /// terminent dans un ordre quelconque).
+  List<MapEntry<String, ExternalBook>> _booksInScanOrder() => [
+    for (final isbn in widget.isbns.toSet())
+      if (_selectedBooks[isbn] case final book?) MapEntry(isbn, book),
+  ];
 
   void _removeBook(String isbn) {
     setState(() {
@@ -149,7 +183,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bookList = _selectedBooks.entries.toList();
+    final bookList = _booksInScanOrder();
     final libraryIndex =
         ref.watch(libraryIndexProvider).value ?? LibraryIndex.empty;
     final toAdd =
@@ -162,7 +196,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
           if (!_isLoading && _selectedBooks.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.check),
-              onPressed: _addAll,
+              onPressed: _isSaving ? null : _addAll,
               tooltip: 'Tout ajouter',
             ),
         ],
@@ -175,7 +209,8 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
                   Text(
-                    'Recherche sur OpenLibrary, Google Books et Inventaire...',
+                    'Recherche sur OpenLibrary, la BnF, Inventaire et Google Books…',
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -289,7 +324,7 @@ class _BatchAddPageState extends ConsumerState<BatchAddPage> {
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: ElevatedButton.icon(
-                    onPressed: toAdd > 0 ? _addAll : null,
+                    onPressed: toAdd > 0 && !_isSaving ? _addAll : null,
                     icon: const Icon(Icons.playlist_add),
                     label: Text(
                       toAdd == _selectedBooks.length

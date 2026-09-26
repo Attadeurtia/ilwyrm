@@ -53,7 +53,8 @@ class LocalSearchDelegate extends SearchDelegate<Book?> {
     return FutureBuilder<List<Book>>(
       future: database.searchBooks(query),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        // Les résultats précédents restent affichés pendant la frappe.
+        if (!snapshot.hasData && !snapshot.hasError) {
           return const Center(child: CircularProgressIndicator());
         }
 

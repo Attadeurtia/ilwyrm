@@ -21,10 +21,11 @@ class BooksRepository {
     )..where((tbl) => tbl.id.equals(id))).getSingle();
   }
 
-  Stream<Book> watchBook(int id) {
+  /// Flux d'un livre ; émet null s'il est supprimé (au lieu d'une erreur).
+  Stream<Book?> watchBook(int id) {
     return (_db.select(
       _db.books,
-    )..where((tbl) => tbl.id.equals(id))).watchSingle();
+    )..where((tbl) => tbl.id.equals(id))).watchSingleOrNull();
   }
 
   Stream<List<Book>> watchBooks({
@@ -66,11 +67,17 @@ class BooksRepository {
 
   Future<List<Book>> searchBooks(String query) => _db.searchBooks(query);
 
-  /// Livres du même auteur (recherche sur le champ auteur uniquement).
-  Future<List<Book>> getBooksByAuthor(String author) {
+  /// Livres d'au moins un des [authors] (recherche sur le champ auteur),
+  /// réactif : la liste suit les ajouts/suppressions.
+  Stream<List<Book>> watchBooksByAuthors(List<String> authors) {
+    if (authors.isEmpty) return Stream.value(const []);
     return (_db.select(_db.books)
-          ..where((t) => t.authorText.like('%$author%')))
-        .get();
+          ..where(
+            (t) => authors
+                .map((a) => t.authorText.like('%$a%'))
+                .reduce((a, b) => a | b),
+          ))
+        .watch();
   }
 
   Future<int> addBook(BooksCompanion book) {
@@ -177,6 +184,17 @@ class BooksRepository {
   // Tags
   Future<List<Tag>> getAllTags() => _db.getAllTags();
   Future<List<Tag>> getTagsForBook(int bookId) => _db.getTagsForBook(bookId);
+
+  /// Versions réactives : l'UI suit la création de tags et les (dé)associations
+  /// sans rechargement manuel.
+  Stream<List<Tag>> watchAllTags() => _db.select(_db.tags).watch();
+
+  Stream<List<Tag>> watchTagsForBook(int bookId) {
+    final query = _db.select(_db.tags).join([
+      innerJoin(_db.bookTags, _db.bookTags.tagId.equalsExp(_db.tags.id)),
+    ])..where(_db.bookTags.bookId.equals(bookId));
+    return query.map((row) => row.readTable(_db.tags)).watch();
+  }
   Future<List<Book>> getBooksByTag(int tagId) => _db.getBooksByTag(tagId);
 
   Future<List<Book>> getBooksByTags(List<int> tagIds) async {
@@ -232,4 +250,30 @@ class BooksRepository {
 final booksRepositoryProvider = Provider<BooksRepository>((ref) {
   final db = ref.watch(databaseProvider);
   return BooksRepository(db);
+});
+
+/// Un livre, suivi en temps réel (null une fois supprimé).
+final bookProvider = StreamProvider.autoDispose.family<Book?, int>(
+  (ref, id) => ref.watch(booksRepositoryProvider).watchBook(id),
+);
+
+/// Tous les tags (barre de filtres, fiche).
+final allTagsProvider = StreamProvider<List<Tag>>(
+  (ref) => ref.watch(booksRepositoryProvider).watchAllTags(),
+);
+
+/// Tags d'un livre.
+final bookTagsProvider = StreamProvider.autoDispose.family<List<Tag>, int>(
+  (ref, bookId) => ref.watch(booksRepositoryProvider).watchTagsForBook(bookId),
+);
+
+/// Livres partageant au moins un auteur de [authorText] (« A, B » → A ou B).
+final authorBooksProvider =
+    StreamProvider.autoDispose.family<List<Book>, String>((ref, authorText) {
+  final authors = authorText
+      .split(',')
+      .map((a) => a.trim())
+      .where((a) => a.isNotEmpty)
+      .toList();
+  return ref.watch(booksRepositoryProvider).watchBooksByAuthors(authors);
 });

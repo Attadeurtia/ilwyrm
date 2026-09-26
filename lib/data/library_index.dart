@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'book_search_api.dart';
 import 'database.dart';
 import 'repositories/books_repository.dart';
+import 'text_normalize.dart';
 
 /// Index des identités des livres déjà présents en bibliothèque, pour repérer
 /// (et empêcher) un doublon lors de la recherche.
@@ -30,6 +31,14 @@ class LibraryIndex {
 
   /// Vrai si [book] est déjà dans la bibliothèque.
   bool contains(ExternalBook book) => findId(book) != null;
+
+  /// Copie de l'index incluant [book] (enregistré sous l'identifiant [id]) :
+  /// sert à repérer, lors d'un ajout groupé, deux entrées du lot qui désignent
+  /// le même livre (ex. son ISBN-10 et son ISBN-13 scannés séparément).
+  LibraryIndex extendedWith(ExternalBook book, int id) => LibraryIndex({
+        ..._keyToId,
+        for (final key in _keysForExternal(book)) key: id,
+      });
 
   /// Vrai si un livre de la bibliothèque possède cet ISBN (10 ou 13), nettoyé.
   /// Utile pour signaler un doublon dès le scan du code-barres.
@@ -106,10 +115,10 @@ Set<String> _keysForFields({
   // Repli titre + auteur (uniquement si l'auteur est connu, pour ne pas
   // confondre deux livres homonymes sans identifiant).
   if (_isKnownAuthor(author)) {
-    final normTitle = _normalize(title);
+    final normTitle = normalizeText(title);
     if (normTitle.isNotEmpty) {
       // Tokens d'auteur triés → tolère « Cixin Liu » vs « Liu Cixin ».
-      final authorTokens = _normalize(author!)
+      final authorTokens = normalizeText(author!)
           .split(' ')
           .where((e) => e.isNotEmpty)
           .toList()
@@ -124,25 +133,6 @@ Set<String> _keysForFields({
 bool _isKnownAuthor(String? a) {
   final n = a?.trim().toLowerCase() ?? '';
   return n.isNotEmpty && n != 'unknown author';
-}
-
-const Map<String, String> _accents = {
-  'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a', 'ã': 'a', 'å': 'a',
-  'ç': 'c',
-  'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-  'ì': 'i', 'î': 'i', 'ï': 'i', 'í': 'i',
-  'ò': 'o', 'ô': 'o', 'ö': 'o', 'ó': 'o', 'õ': 'o',
-  'ù': 'u', 'û': 'u', 'ü': 'u', 'ú': 'u',
-  'ñ': 'n', 'ÿ': 'y', 'œ': 'oe', 'æ': 'ae', 'ß': 'ss',
-};
-
-/// Normalise pour comparaison : minuscules, sans accents, sans ponctuation.
-String _normalize(String s) {
-  var out = s.toLowerCase();
-  _accents.forEach((k, v) => out = out.replaceAll(k, v));
-  out = out.replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
-  out = out.replaceAll(RegExp(r'\s+'), ' ').trim();
-  return out;
 }
 
 /// Index réactif : ré-émis à chaque changement de la bibliothèque, pour que la

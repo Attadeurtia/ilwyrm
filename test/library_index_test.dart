@@ -141,5 +141,20 @@ void main() {
       expect(LibraryIndex.empty.contains(_external(title: 'Dune', author: 'Frank Herbert')),
           isFalse);
     });
+
+    test('extendedWith : un livre ajouté dans un lot est reconnu ensuite', () {
+      // Ajout groupé : l'ISBN-13 puis l'ISBN-10 d'un même livre scannés.
+      final added = _external(
+        title: 'Dune',
+        author: 'Frank Herbert',
+        isbns: ['9780441013593', '0441013597'],
+      );
+      final index = LibraryIndex.empty.extendedWith(added, 7);
+
+      expect(index.findId(_external(title: 'Dune', isbns: ['0441013597'])), 7);
+      expect(index.containsIsbn('9780441013593'), isTrue);
+      expect(LibraryIndex.empty.contains(added), isFalse,
+          reason: "l'index d'origine n'est pas modifié");
+    });
   });
 }

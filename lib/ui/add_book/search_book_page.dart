@@ -55,6 +55,10 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
   int _searchSeq = 0;
   String _lastSubmitted = '';
 
+  /// Fiches en cours d'ajout : un double appui sur « + » ne crée pas de doublon
+  /// (les deux appuis liraient la base avant l'insertion du premier).
+  final Set<ExternalBook> _adding = {};
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +118,15 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
   }
 
   Future<void> _quickAddBook(ExternalBook book) async {
+    if (!_adding.add(book)) return;
+    try {
+      await _addIfAbsent(book);
+    } finally {
+      _adding.remove(book);
+    }
+  }
+
+  Future<void> _addIfAbsent(ExternalBook book) async {
     final database = ref.read(databaseProvider);
 
     // Vérification anti-doublon faisant autorité : on relit la bibliothèque et
@@ -305,7 +318,10 @@ class _SearchBookPageState extends ConsumerState<SearchBookPage>
     final hasAuthor = book.authorText.trim().isNotEmpty &&
         book.authorText.trim().toLowerCase() != 'unknown author';
     final subtitleParts = <String>[
-      if (hasAuthor) book.authorText else if (book.description != null) book.description!,
+      if (hasAuthor)
+        book.authorText
+      else if (book.shortDescription != null)
+        book.shortDescription!,
     ];
 
     final existingId = libraryIndex.findId(book);

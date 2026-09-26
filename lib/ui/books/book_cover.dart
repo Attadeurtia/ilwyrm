@@ -28,13 +28,27 @@ class BookCover extends StatelessWidget {
   /// `contain` pour l'aperçu plein écran (couverture entière, sans rognage).
   final BoxFit fit;
 
+  /// Aperçu plein écran (zoomable) : image décodée en pleine résolution.
+  /// Ailleurs, elle est décodée à une taille plafonnée (voir [_decodeHeight]).
+  final bool fullResolution;
+
   const BookCover({
     super.key,
     required this.book,
     this.borderRadius = 8,
     this.compact = false,
     this.fit = BoxFit.cover,
+    this.fullResolution = false,
   });
+
+  /// Hauteur maximale (pixels physiques) à laquelle une couverture est décodée
+  /// hors plein écran — assez pour la fiche (210 dp × densité ≈ 3,5). Une
+  /// photo de couverture (2000 px de large) décodée en entier pèse ~20 Mo en
+  /// mémoire, contre ~1 Mo ainsi. La même taille sert partout (grille, liste,
+  /// fiche) : l'image décodée est réutilisée pendant la transition Hero, sans
+  /// nouveau décodage ni clignotement. Les images plus petites ne sont jamais
+  /// agrandies.
+  static const int _decodeHeight = 720;
 
   String _withDefaultFalse(String url) {
     if (url.contains('covers.openlibrary.org') && !url.contains('default=')) {
@@ -76,32 +90,52 @@ class BookCover extends StatelessWidget {
     // en cas d'échec, on retombe sur la cascade réseau puis le placeholder.
     final path = book.coverPath;
     if (path != null && path.trim().isNotEmpty) {
-      return Image.file(
-        File(path),
-        fit: fit,
-        width: double.infinity,
-        height: double.infinity,
-        errorBuilder: (context, _, _) =>
-            _chain(context, _candidateUrls(), 0),
-      );
+      final file = File(path);
+      Widget local({required bool full}) => Image.file(
+            file,
+            fit: fit,
+            width: double.infinity,
+            height: double.infinity,
+            cacheHeight: full ? null : _decodeHeight,
+            // Plein écran : la version plafonnée (déjà décodée) s'affiche en
+            // attendant la pleine résolution.
+            frameBuilder: full
+                ? (context, child, frame, sync) =>
+                    frame == null && !sync ? local(full: false) : child
+                : null,
+            errorBuilder: (context, _, _) =>
+                _chain(context, _candidateUrls(), 0),
+          );
+      return local(full: fullResolution);
     }
     return _chain(context, _candidateUrls(), 0);
   }
 
-  Widget _chain(BuildContext context, List<String> urls, int index) {
+  Widget _chain(
+    BuildContext context,
+    List<String> urls,
+    int index, {
+    bool? full,
+  }) {
     if (index >= urls.length) return _fallback(context);
+    final fullSize = full ?? fullResolution;
     return CachedNetworkImage(
       imageUrl: urls[index],
       fit: fit,
       width: double.infinity,
       height: double.infinity,
+      memCacheHeight: fullSize ? null : _decodeHeight,
       // Pas de fondu : l'image s'affiche directement une fois chargée. Pendant
       // le chargement, on montre déjà le repli coloré titre/auteur (plutôt qu'une
       // case vide), qui reste informatif si la couverture finit par échouer.
+      // En plein écran, c'est la version plafonnée qui patiente.
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
-      placeholder: (context, _) => _fallback(context),
-      errorWidget: (context, _, _) => _chain(context, urls, index + 1),
+      placeholder: (context, _) => fullSize
+          ? _chain(context, urls, index, full: false)
+          : _fallback(context),
+      errorWidget: (context, _, _) =>
+          _chain(context, urls, index + 1, full: full),
     );
   }
 

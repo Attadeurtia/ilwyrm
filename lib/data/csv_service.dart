@@ -85,12 +85,21 @@ class CsvService {
   ///
   /// Retourne le [File] contenant le CSV exporté, prêt à être partagé.
   Future<File> exportToCsv() async {
+    final csvData = await buildCsv();
+    final directory = await getTemporaryDirectory();
+    final file = File('${directory.path}/ilwyrm_export.csv');
+    await file.writeAsString(csvData);
+    return file;
+  }
+
+  /// Contenu CSV de toute la bibliothèque (livres + tags).
+  Future<String> buildCsv() async {
     final books = await _db.getAllBooks();
+    final tagsByBook = await _db.getTagsByBook();
     final rows = <List<dynamic>>[_headers];
 
     for (final book in books) {
-      // Récupérer les tags de chaque livre
-      final bookTags = await _db.getTagsForBook(book.id);
+      final bookTags = tagsByBook[book.id] ?? const <Tag>[];
       final tagNames = bookTags.map((t) => t.name).join('|');
       final tagColors =
           bookTags.map((t) => t.color?.toString() ?? '').join('|');
@@ -144,13 +153,7 @@ class CsvService {
     final safeRows = rows
         .map((r) => r.map((c) => c is String ? _csvSafe(c) : c).toList())
         .toList();
-    final csvData = const ListToCsvConverter().convert(safeRows);
-
-    final directory = await getTemporaryDirectory();
-    final file = File('${directory.path}/ilwyrm_export.csv');
-    await file.writeAsString(csvData);
-
-    return file;
+    return const ListToCsvConverter().convert(safeRows);
   }
 
   // ---------------------------------------------------------------------------
@@ -168,9 +171,29 @@ class CsvService {
     bool fetchCovers = false,
     void Function(int current, int total)? onProgress,
   }) async {
-    final input = await file.readAsString();
-    final List<List<dynamic>> rows = const CsvToListConverter().convert(
-      input,
+    return importFromCsvString(
+      await file.readAsString(),
+      fetchCovers: fetchCovers,
+      onProgress: onProgress,
+    );
+  }
+
+  /// Importe depuis le contenu CSV [input] (voir [importFromCsv]).
+  ///
+  /// En deux temps : lecture des lignes (et, si demandé, recherche réseau des
+  /// couvertures manquantes), puis écriture de tout dans UNE transaction —
+  /// bien plus rapide qu'une écriture par ligne, et l'UI n'est rafraîchie
+  /// qu'une fois au lieu d'après chaque livre.
+  Future<CsvImportResult> importFromCsvString(
+    String input, {
+    bool fetchCovers = false,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    // Sans conversion des nombres : sinon l'ISBN-10 « 0441013597 » deviendrait
+    // 441013597 et un titre « 007 » deviendrait « 7 ». Les fins de ligne \r\n
+    // (celles de l'export) sont ramenées à \n.
+    final rows = const CsvToListConverter(shouldParseNumbers: false).convert(
+      input.replaceAll('\r\n', '\n'),
       eol: '\n',
     );
 
@@ -191,15 +214,11 @@ class CsvService {
     int skippedCount = 0;
     final errors = <String>[];
 
-    // Cache des tags existants pour éviter les requêtes en double
-    final tagCache = <String, int>{};
-
+    // 1) Lecture des lignes + couvertures manquantes (réseau, hors transaction).
+    final parsed = <({int line, Map<String, String> map, String? coverUrl})>[];
     final openLibraryApi = fetchCovers ? OpenLibraryApi() : null;
-
     for (int i = 0; i < dataRows.length; i++) {
       final row = dataRows[i];
-      onProgress?.call(i + 1, totalCount);
-
       if (row.length != headers.length) {
         skippedCount++;
         errors.add('Ligne ${i + 2} : nombre de colonnes incorrect.');
@@ -211,126 +230,138 @@ class CsvService {
         map[headers[j]] = _stripCsvGuard(row[j].toString());
       }
 
-      try {
-        // Recherche optionnelle de couverture
-        String? coverUrl = _nonEmpty(map['cover_url']);
-        if (coverUrl == null && fetchCovers && openLibraryApi != null) {
-          coverUrl = await _fetchCoverUrl(map, openLibraryApi);
-        }
-
-        // Statut normalisé + dates cohérentes avec le statut (même règle que
-        // le reste de l'app).
-        final shelf = BookShelf.fromId(_normalizeShelf(map['shelf']));
-        final dates = datesForShelf(
-          shelf,
-          currentStart: _parseDate(map['start_date']),
-          currentFinish: _parseDate(map['finish_date']),
-        );
-
-        // Construire le companion avec TOUS les champs
-        final book = BooksCompanion(
-          title: drift.Value(map['title'] ?? ''),
-          authorText: drift.Value(_nonEmpty(map['author_text'])),
-          remoteId: drift.Value(_nonEmpty(map['remote_id'])),
-          openlibraryKey: drift.Value(_nonEmpty(map['openlibrary_key'])),
-          finnaKey: drift.Value(_nonEmpty(map['finna_key'])),
-          inventaireId: drift.Value(_nonEmpty(map['inventaire_id'])),
-          librarythingKey: drift.Value(_nonEmpty(map['librarything_key'])),
-          goodreadsKey: drift.Value(_nonEmpty(map['goodreads_key'])),
-          bnfId: drift.Value(_nonEmpty(map['bnf_id'])),
-          viaf: drift.Value(_nonEmpty(map['viaf'])),
-          wikidata: drift.Value(_nonEmpty(map['wikidata'])),
-          asin: drift.Value(_nonEmpty(map['asin'])),
-          aasin: drift.Value(_nonEmpty(map['aasin'])),
-          isfdb: drift.Value(_nonEmpty(map['isfdb'])),
-          isbn10: drift.Value(_nonEmpty(map['isbn_10'])),
-          isbn13: drift.Value(_nonEmpty(map['isbn_13'])),
-          oclcNumber: drift.Value(_nonEmpty(map['oclc_number'])),
-          pageCount: drift.Value(_parseInt(map['page_count'])),
-          currentPage: drift.Value(_parseInt(map['current_page'])),
-          publisher: drift.Value(_nonEmpty(map['publisher'])),
-          description: drift.Value(_nonEmpty(map['description'])),
-          publicationYear: drift.Value(_parseInt(map['publication_year'])),
-          startDate: drift.Value(dates.start),
-          finishDate: drift.Value(dates.finish),
-          stoppedDate: drift.Value(_parseDate(map['stopped_date'])),
-          coverId: drift.Value(_parseInt(map['cover_id'])),
-          coverUrl: coverUrl != null
-              ? drift.Value(coverUrl)
-              : drift.Value(_nonEmpty(map['cover_url'])),
-          coverPath: drift.Value(_nonEmpty(map['cover_path'])),
-          rating: drift.Value(_parseInt(map['rating'])),
-          reviewName: drift.Value(_nonEmpty(map['review_name'])),
-          reviewCw: drift.Value(_nonEmpty(map['review_cw'])),
-          reviewContent: drift.Value(_nonEmpty(map['review_content'])),
-          reviewPublished: drift.Value(_parseDate(map['review_published'])),
-          shelf: drift.Value(shelf.id),
-          shelfName: drift.Value(shelf.label),
-          shelfDate: drift.Value(_parseDate(map['shelf_date'])),
-          isFavorite: drift.Value(map['is_favorite'] == 'true'),
-          dateAdded: drift.Value(
-            _parseDate(map['date_added']) ?? DateTime.now(),
-          ),
-          dateModified: drift.Value(
-            _parseDate(map['date_modified']) ?? DateTime.now(),
-          ),
-        );
-
-        // Déduplication : si un livre partage l'ISBN-13/10 ou le remote_id, on
-        // le met à jour plutôt que de créer un doublon (import ré-exécutable).
-        final existing = await _findExistingBook(map);
-        final int bookId;
-        if (existing != null) {
-          await (_db.update(_db.books)
-                ..where((t) => t.id.equals(existing.id)))
-              .write(book);
-          bookId = existing.id;
-        } else {
-          bookId = await _db.into(_db.books).insert(book);
-        }
-
-        // Gérer les tags
-        final tagsStr = _nonEmpty(map['tags']);
-        final tagColorsStr = _nonEmpty(map['tag_colors']);
-        if (tagsStr != null) {
-          final tagNames = tagsStr.split('|').where((s) => s.isNotEmpty);
-          final tagColors = tagColorsStr?.split('|') ?? [];
-
-          int tagIndex = 0;
-          for (final tagName in tagNames) {
-            int? color;
-            if (tagIndex < tagColors.length) {
-              color = int.tryParse(tagColors[tagIndex]);
-            }
-
-            // Récupérer ou créer le tag
-            int tagId;
-            if (tagCache.containsKey(tagName)) {
-              tagId = tagCache[tagName]!;
-            } else {
-              final existingTag = await _db.getTagByName(tagName);
-              if (existingTag != null) {
-                tagId = existingTag.id;
-              } else {
-                tagId = await _db.createTag(tagName, color: color);
-              }
-              tagCache[tagName] = tagId;
-            }
-
-            // Associer le tag au livre
-            await _db.addTagToBook(bookId, tagId);
-            tagIndex++;
-          }
-        }
-
-        importedCount++;
-      } catch (e) {
-        skippedCount++;
-        errors.add(
-          'Ligne ${i + 2} (${map['title'] ?? '?'}) : ${e.toString()}',
-        );
+      String? coverUrl = _nonEmpty(map['cover_url']);
+      if (openLibraryApi != null) {
+        // Phase lente (réseau) : c'est elle qui fait avancer la progression.
+        onProgress?.call(i + 1, totalCount);
+        coverUrl ??= await _fetchCoverUrl(map, openLibraryApi);
       }
+      parsed.add((line: i + 2, map: map, coverUrl: coverUrl));
     }
+
+    // 2) Écriture groupée.
+    // Cache des tags existants pour éviter les requêtes en double
+    final tagCache = <String, int>{};
+    await _db.transaction(() async {
+      for (final (index, entry) in parsed.indexed) {
+        final map = entry.map;
+        final coverUrl = entry.coverUrl;
+        if (openLibraryApi == null) onProgress?.call(index + 1, parsed.length);
+
+        try {
+          // Statut normalisé + dates cohérentes avec le statut (même règle que
+          // le reste de l'app).
+          final shelf = BookShelf.fromId(_normalizeShelf(map['shelf']));
+          final dates = datesForShelf(
+            shelf,
+            currentStart: _parseDate(map['start_date']),
+            currentFinish: _parseDate(map['finish_date']),
+          );
+
+          // Construire le companion avec TOUS les champs
+          final book = BooksCompanion(
+            title: drift.Value(map['title'] ?? ''),
+            authorText: drift.Value(_nonEmpty(map['author_text'])),
+            remoteId: drift.Value(_nonEmpty(map['remote_id'])),
+            openlibraryKey: drift.Value(_nonEmpty(map['openlibrary_key'])),
+            finnaKey: drift.Value(_nonEmpty(map['finna_key'])),
+            inventaireId: drift.Value(_nonEmpty(map['inventaire_id'])),
+            librarythingKey: drift.Value(_nonEmpty(map['librarything_key'])),
+            goodreadsKey: drift.Value(_nonEmpty(map['goodreads_key'])),
+            bnfId: drift.Value(_nonEmpty(map['bnf_id'])),
+            viaf: drift.Value(_nonEmpty(map['viaf'])),
+            wikidata: drift.Value(_nonEmpty(map['wikidata'])),
+            asin: drift.Value(_nonEmpty(map['asin'])),
+            aasin: drift.Value(_nonEmpty(map['aasin'])),
+            isfdb: drift.Value(_nonEmpty(map['isfdb'])),
+            isbn10: drift.Value(_nonEmpty(map['isbn_10'])),
+            isbn13: drift.Value(_nonEmpty(map['isbn_13'])),
+            oclcNumber: drift.Value(_nonEmpty(map['oclc_number'])),
+            pageCount: drift.Value(_parseInt(map['page_count'])),
+            currentPage: drift.Value(_parseInt(map['current_page'])),
+            publisher: drift.Value(_nonEmpty(map['publisher'])),
+            description: drift.Value(_nonEmpty(map['description'])),
+            publicationYear: drift.Value(_parseInt(map['publication_year'])),
+            startDate: drift.Value(dates.start),
+            finishDate: drift.Value(dates.finish),
+            stoppedDate: drift.Value(_parseDate(map['stopped_date'])),
+            coverId: drift.Value(_parseInt(map['cover_id'])),
+            coverUrl: drift.Value(coverUrl),
+            coverPath: drift.Value(_nonEmpty(map['cover_path'])),
+            rating: drift.Value(_parseInt(map['rating'])),
+            reviewName: drift.Value(_nonEmpty(map['review_name'])),
+            reviewCw: drift.Value(_nonEmpty(map['review_cw'])),
+            reviewContent: drift.Value(_nonEmpty(map['review_content'])),
+            reviewPublished: drift.Value(_parseDate(map['review_published'])),
+            shelf: drift.Value(shelf.id),
+            shelfName: drift.Value(shelf.label),
+            shelfDate: drift.Value(_parseDate(map['shelf_date'])),
+            isFavorite: drift.Value(map['is_favorite'] == 'true'),
+            dateAdded: drift.Value(
+              _parseDate(map['date_added']) ?? DateTime.now(),
+            ),
+            dateModified: drift.Value(
+              _parseDate(map['date_modified']) ?? DateTime.now(),
+            ),
+          );
+
+          // Déduplication : si un livre partage l'ISBN-13/10 ou le remote_id,
+          // on le met à jour plutôt que de créer un doublon (import
+          // ré-exécutable).
+          final existing = await _findExistingBook(map);
+          final int bookId;
+          if (existing != null) {
+            await (_db.update(_db.books)
+                  ..where((t) => t.id.equals(existing.id)))
+                .write(book);
+            bookId = existing.id;
+          } else {
+            bookId = await _db.into(_db.books).insert(book);
+          }
+
+          // Gérer les tags
+          final tagsStr = _nonEmpty(map['tags']);
+          final tagColorsStr = _nonEmpty(map['tag_colors']);
+          if (tagsStr != null) {
+            final tagNames = tagsStr.split('|').where((s) => s.isNotEmpty);
+            final tagColors = tagColorsStr?.split('|') ?? [];
+
+            int tagIndex = 0;
+            for (final tagName in tagNames) {
+              int? color;
+              if (tagIndex < tagColors.length) {
+                color = int.tryParse(tagColors[tagIndex]);
+              }
+
+              // Récupérer ou créer le tag
+              int tagId;
+              if (tagCache.containsKey(tagName)) {
+                tagId = tagCache[tagName]!;
+              } else {
+                final existingTag = await _db.getTagByName(tagName);
+                if (existingTag != null) {
+                  tagId = existingTag.id;
+                } else {
+                  tagId = await _db.createTag(tagName, color: color);
+                }
+                tagCache[tagName] = tagId;
+              }
+
+              // Associer le tag au livre
+              await _db.addTagToBook(bookId, tagId);
+              tagIndex++;
+            }
+          }
+
+          importedCount++;
+        } catch (e) {
+          skippedCount++;
+          errors.add(
+            'Ligne ${entry.line} (${map['title'] ?? '?'}) : ${e.toString()}',
+          );
+        }
+      }
+    });
 
     return CsvImportResult(
       importedCount: importedCount,

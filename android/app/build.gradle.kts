@@ -14,6 +14,21 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Architectures demandées à Flutter (`flutter build apk --target-platform …`,
+// ou celle de l'appareil pour `flutter run`). Flutter n'en tient compte que pour
+// son propre moteur : sans ce filtre, les bibliothèques natives des plugins
+// (ML Kit, scanner, SQLite) restent embarquées pour toutes les architectures.
+val flutterAbis = mapOf(
+    "android-arm" to "armeabi-v7a",
+    "android-arm64" to "arm64-v8a",
+    "android-x64" to "x86_64",
+    "android-x86" to "x86",
+)
+val targetAbis = (findProperty("target-platform") as String?)
+    ?.split(",")
+    ?.mapNotNull { flutterAbis[it.trim()] }
+    ?.takeIf { it.isNotEmpty() && !hasProperty("split-per-abi") }
+
 android {
     namespace = "com.example.ilwyrm"
     compileSdk = flutter.compileSdkVersion
@@ -52,12 +67,17 @@ android {
             } else {
                 signingConfig = signingConfigs.getByName("debug")
             }
-            // Désactive R8/minification en release : ML Kit (texte latin) référence
-            // des recognizers optionnels (chinois, japonais, coréen, devanagari)
-            // absents de l'app, ce qui fait échouer R8. On évite aussi tout risque
-            // de suppression de classes ML Kit nécessaires à l'exécution.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 (réduction du code et des ressources) reste actif, comme par
+            // défaut avec Flutter : les classes ML Kit optionnelles absentes sont
+            // déclarées dans proguard-rules.pro.
+        }
+        if (targetAbis != null) {
+            all {
+                ndk {
+                    abiFilters.clear()
+                    abiFilters.addAll(targetAbis)
+                }
+            }
         }
     }
 }
